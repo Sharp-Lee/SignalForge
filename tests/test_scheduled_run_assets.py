@@ -17,6 +17,10 @@ def test_scheduled_wrapper_is_executable_and_redacts_logs():
     assert "--capture --store" in script
     assert "--analyze" in script
     assert "--pipeline" in script
+    assert "scripts/generate_digest.py" in script
+    assert '[ "$RUN_MODE" = "analyze" ] || [ "$RUN_MODE" = "pipeline" ]' in script
+    assert "DIGEST_DATE=\"$(date -u +%F)\"" in script
+    assert '--date "$DIGEST_DATE"' in script
     assert "--show-store" in script
     assert ".local/runtime.env" in script
     assert ".config/news-llm/keys.env" in script

@@ -171,6 +171,12 @@ LOCK_DIR="$LOG_DIR/.scheduled.lock"
       ;;
   esac
   rc=$?
+  if [ "$rc" -eq 0 ] && { [ "$RUN_MODE" = "analyze" ] || [ "$RUN_MODE" = "pipeline" ]; }; then
+    echo "scheduled news $RUN_MODE generating daily digest:"
+    DIGEST_DATE="$(date -u +%F)"
+    "$PYTHON_BIN" "$PROJECT_ROOT/scripts/generate_digest.py" --store "$STORE_PATH" --date "$DIGEST_DATE"
+    rc=$?
+  fi
   if [ "$rc" -eq 0 ] && [ "$SHOW_STORE_AFTER_RUN" != "0" ]; then
     echo "scheduled news $RUN_MODE store summary:"
     "$PYTHON_BIN" "$PROJECT_ROOT/scripts/run_live.py" --show-store "$STORE_PATH"

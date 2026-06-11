@@ -102,6 +102,10 @@ source information -> supporting logic -> strongest counterargument -> selected
 watchlist targets. It is a personal research note, not an investment
 recommendation.
 
+Open `.local/news-data/digests/YYYY-MM-DD.html` in a browser, select the rendered
+content, and paste it into the WeChat public-account editor. If the editor strips
+formatting, use the Markdown file with a Markdown-to-WeChat tool such as mdnice.
+
 ## Scheduled Run
 
 The production schedule is split:
@@ -109,12 +113,14 @@ The production schedule is split:
 - `com.wukong.news-capture`: RSS capture only, four times per day: 08:30, 12:30, 16:30, 21:30.
 - `com.wukong.news-analyze`: pending analysis + target generation + digest, daily at 18:00 after A-share close.
 
-Both jobs call `scripts/run_scheduled.sh`; environment setup stays centralized in the wrapper. Capture does not require LLM or market-data keys. Analyze reads keys from `~/.config/news-llm/keys.env`, processes at most `NEWS_ANALYZE_TOP_K` pending clusters, skips stale pending items after `NEWS_PENDING_MAX_AGE_DAYS`, and stops retrying repeatedly failing clusters after `NEWS_MAX_ANALYSIS_ATTEMPTS`.
+Both jobs call `scripts/run_scheduled.sh`; environment setup stays centralized in the wrapper. Capture does not require LLM or market-data keys. Analyze reads keys from `~/.config/news-llm/keys.env`, processes at most `NEWS_ANALYZE_TOP_K` pending clusters, skips stale pending items after `NEWS_PENDING_MAX_AGE_DAYS`, stops retrying repeatedly failing clusters after `NEWS_MAX_ANALYSIS_ATTEMPTS`, and writes `.local/news-data/digests/YYYY-MM-DD.md` plus `.html` after a successful run.
 
 Install the LaunchAgents:
 
 ```bash
 mkdir -p "$HOME/Library/LaunchAgents"
+launchctl bootout "gui/$(id -u)/com.wukong.news-pipeline" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/com.wukong.news-pipeline.plist"
 cp launchd/com.wukong.news-capture.plist "$HOME/Library/LaunchAgents/"
 cp launchd/com.wukong.news-analyze.plist "$HOME/Library/LaunchAgents/"
 launchctl load "$HOME/Library/LaunchAgents/com.wukong.news-capture.plist"
@@ -130,6 +136,8 @@ launchctl kickstart "gui/$(id -u)/com.wukong.news-analyze"
 ```
 
 Logs are written to `.local/news-data/logs/YYYY-MM-DD.log`.
+Digest files are written to `.local/news-data/digests/YYYY-MM-DD.md` and
+`.local/news-data/digests/YYYY-MM-DD.html`.
 
 RSS sources are configured by `.local/rss_sources.json` or `NEWS_RSS_SOURCES_FILE`; copy `config/rss_sources.example.json` to customize. Quick one-off runs can use `RSS_FEED_URL`, `NEWS_RSS_FEED_URL`, or comma-separated `NEWS_RSS_FEED_URLS`.
 
@@ -149,4 +157,5 @@ python -m pytest tests/ -q
 openspec validate operationalize-scheduled-run --strict
 openspec validate add-daily-digest --strict
 openspec validate decouple-capture-analyze --strict
+openspec validate schedule-digest-and-go-live --strict
 ```
