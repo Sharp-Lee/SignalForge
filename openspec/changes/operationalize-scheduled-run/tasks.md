@@ -20,3 +20,14 @@
 - [x] 3.2 Run `openspec validate operationalize-scheduled-run --strict`
 - [x] 3.3 Perform a manual scheduled wrapper run after launchd installation
 - [x] 3.4 Do not archive until reviewer approval
+
+## 4. Public Repo Secret Hardening
+
+- [x] 4.1 Move real keys back outside the repo to `~/.config/news-llm/keys.env`
+- [x] 4.2 Remove repo-local `.local/keys.env`
+- [x] 4.3 Change wrapper default `NEWS_KEYS_FILE` back to repo-external path
+- [x] 4.4 Ensure wrapper creates key/store/log parent directories and prints clear missing-key guidance
+- [x] 4.5 Update public docs and runtime example with repo-external key layout
+- [x] 4.6 Verify stripped-environment run with a temporary store
+- [x] 4.7 Verify launchd still points to wrapper
+- [ ] 4.8 Run tests, OpenSpec strict validation, and staged secret scan before push

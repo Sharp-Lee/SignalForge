@@ -16,7 +16,7 @@ def test_scheduled_wrapper_is_executable_and_redacts_logs():
     assert "--pipeline --store" in script
     assert "--show-store" in script
     assert ".local/runtime.env" in script
-    assert ".local/keys.env" in script
+    assert ".config/news-llm/keys.env" in script
     assert ".local/news-data/live-store.db" in script
     assert "keys.env" in script
     assert "sed -E" in script

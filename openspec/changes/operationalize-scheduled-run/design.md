@@ -5,14 +5,14 @@ The live pipeline already works when started manually:
 ```bash
 set -a; source ~/.config/news-llm/keys.env; set +a
 export RSS_FEED_URL="https://www.servethehome.com/feed/"
-python scripts/run_live.py --pipeline --store ~/news-data/live-store.db
+python scripts/run_live.py --pipeline --store .local/news-data/live-store.db
 ```
 
-For GitHub publication, the current scheduled wrapper defaults have since moved to project-local private paths under `.local/`.
+For GitHub publication, the scheduled wrapper now keeps secrets outside the repo and stores non-secret runtime state under `.local/`.
 
 The operational risk is that launchd and cron do not inherit the interactive shell environment. In this project, that environment matters:
 
-- API keys are sourced from `.local/keys.env` by default, after optional `.local/runtime.env` overrides are loaded.
+- API keys are sourced from `~/.config/news-llm/keys.env` by default, after optional `.local/runtime.env` overrides are loaded.
 - DeepSeek succeeds in the interactive environment with local proxy variables.
 - Market data providers are scoped to bypass the proxy inside `market_data`.
 - Scheduled jobs have a minimal `PATH` and do not source user shell startup files reliably.
@@ -25,7 +25,7 @@ Default configuration:
 
 - project: resolved from the script path;
 - runtime config: `.local/runtime.env`;
-- key file: `.local/keys.env`;
+- key file: `~/.config/news-llm/keys.env`;
 - store: `.local/news-data/live-store.db`;
 - logs: `.local/news-data/logs/YYYY-MM-DD.log`;
 - feed: `https://www.servethehome.com/feed/`;
@@ -70,6 +70,8 @@ sed -E 's/sk-[A-Za-z0-9_-]{10,}/***REDACTED***/g'
 and appended with `tee -a` to the dated log. The underlying `run_live.py` redactor also masks known key values, including `TUSHARE_TOKEN`.
 
 ## R1 Stripped Environment Evidence
+
+The following evidence predates the later repo-public hardening that moved the default key path back outside the repo and the default store/log paths under `.local/`. It remains as the original launchd-environment proof; current verification is repeated after hardening.
 
 Command:
 
@@ -191,7 +193,7 @@ Manual launchd verification:
 
 ```bash
 launchctl kickstart "gui/$(id -u)/com.wukong.news-pipeline"
-tail -200 "$HOME/news-data/logs/$(date +%F).log"
+tail -200 .local/news-data/logs/$(date +%F).log
 ```
 
 ## Operator Workflow
@@ -222,3 +224,70 @@ After launchd installation, a durable feed override can be added to the wrapper 
 - No feedback calibration implementation.
 - No multi-feed scheduler.
 - No launchd installation before R1 approval.
+
+## Public Repo Secret Hardening
+
+After the repository became public, real keys were moved back out of the repository working tree. The wrapper now defaults to:
+
+```text
+NEWS_KEYS_FILE=$HOME/.config/news-llm/keys.env
+NEWS_STORE_PATH=.local/news-data/live-store.db
+NEWS_LOG_DIR=.local/news-data/logs
+```
+
+`.local/` remains gitignored and is acceptable for non-secret runtime state such as SQLite stores and logs. Real keys must not live in `.local/` or any other repo path.
+
+The wrapper creates:
+
+- the key-file parent directory;
+- the store parent directory;
+- the log directory.
+
+If the key file itself is missing, the wrapper exits clearly and points to `config/runtime.env.example` and this runbook.
+
+Verification after hardening:
+
+```text
+repo_key_exists=no
+home_key_exists=yes
+home_key_mode=600
+deepseek_lines=1
+tushare_lines=1
+runtime_external_key_lines=1
+```
+
+Stripped-environment proof command:
+
+```bash
+env -i HOME="$HOME" PATH="/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin" \
+  NEWS_STORE_PATH="/tmp/relocate-verify-87990.db" \
+  bash scripts/run_scheduled.sh
+```
+
+Key evidence:
+
+```text
+store=/tmp/relocate-verify-87990.db
+runtime_config=/Users/wukong/mylife/news/.local/runtime.env
+→ market_data=REAL  universe_source=tushare  symbols=40
+PIPELINE INGESTION
+  accepted : 6
+STORE COUNTS
+  signals      : 6
+  theses       : 6
+  targets      : 11
+  track_record : 6
+PIPELINE ERRORS
+errors: []
+scheduled news pipeline exit_code=0
+```
+
+A follow-up run against the same temporary store verified process exit status and store-summary output:
+
+```text
+verify_exit_code=0
+TARGETS
+- symbol=688525.SH name=佰维存储 logic_score=70 buy_point=neutral priced_in=medium price_change_since_signal=0.12398613518197567
+```
+
+The temporary verification database was removed after the run.

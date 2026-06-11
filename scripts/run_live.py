@@ -6,7 +6,7 @@ Keys are read from env vars ONLY and are NEVER printed: every line of output,
 including exception tracebacks, is passed through a redactor that masks any
 known key value. Run it via:
 
-    set -a; source .local/keys.env; set +a
+    set -a; source ~/.config/news-llm/keys.env; set +a
     python scripts/run_live.py --author deepseek
     python scripts/run_live.py --author relay
     python scripts/run_live.py --author deepseek --reviewer relay   # mixed

@@ -7,7 +7,7 @@ This change operationalizes the pipeline as a self-contained scheduled run: sour
 ## What Changes
 
 - Add a self-contained scheduled-run wrapper script for the live pipeline.
-- The wrapper loads project-local `.local/runtime.env`, sources `.local/keys.env` at runtime, and never writes keys into scripts, plist files, or logs.
+- The wrapper loads project-local `.local/runtime.env`, sources repo-external `~/.config/news-llm/keys.env` at runtime, and never writes keys into scripts, plist files, or logs.
 - The wrapper exports proxy variables for DeepSeek and RSS configuration, then runs `scripts/run_live.py --pipeline --store .local/news-data/live-store.db` with an absolute Python path.
 - The wrapper appends redacted output to `.local/news-data/logs/YYYY-MM-DD.log`.
 - Add a launchd LaunchAgent design for a daily user-session run after A-share close.

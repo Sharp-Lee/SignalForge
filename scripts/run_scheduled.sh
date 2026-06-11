@@ -7,12 +7,30 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 resolve_project_path() {
   case "$1" in
     /*) printf '%s\n' "$1" ;;
+    ~/*) printf '%s/%s\n' "$HOME" "${1#~/}" ;;
     *) printf '%s/%s\n' "$PROJECT_ROOT" "$1" ;;
   esac
 }
 
 RUNTIME_CONFIG="${NEWS_CONFIG_FILE:-"$PROJECT_ROOT/.local/runtime.env"}"
 RUNTIME_CONFIG="$(resolve_project_path "$RUNTIME_CONFIG")"
+
+ENV_NEWS_KEYS_FILE_SET="${NEWS_KEYS_FILE+x}"
+ENV_NEWS_KEYS_FILE="${NEWS_KEYS_FILE-}"
+ENV_NEWS_STORE_PATH_SET="${NEWS_STORE_PATH+x}"
+ENV_NEWS_STORE_PATH="${NEWS_STORE_PATH-}"
+ENV_NEWS_LOG_DIR_SET="${NEWS_LOG_DIR+x}"
+ENV_NEWS_LOG_DIR="${NEWS_LOG_DIR-}"
+ENV_RSS_FEED_URL_SET="${RSS_FEED_URL+x}"
+ENV_RSS_FEED_URL="${RSS_FEED_URL-}"
+ENV_NEWS_RSS_FEED_URL_SET="${NEWS_RSS_FEED_URL+x}"
+ENV_NEWS_RSS_FEED_URL="${NEWS_RSS_FEED_URL-}"
+ENV_NEWS_PYTHON_SET="${NEWS_PYTHON+x}"
+ENV_NEWS_PYTHON="${NEWS_PYTHON-}"
+ENV_NEWS_HTTP_PROXY_SET="${NEWS_HTTP_PROXY+x}"
+ENV_NEWS_HTTP_PROXY="${NEWS_HTTP_PROXY-}"
+ENV_NEWS_SHOW_STORE_AFTER_RUN_SET="${NEWS_SHOW_STORE_AFTER_RUN+x}"
+ENV_NEWS_SHOW_STORE_AFTER_RUN="${NEWS_SHOW_STORE_AFTER_RUN-}"
 
 if [ -r "$RUNTIME_CONFIG" ]; then
   set -a
@@ -21,7 +39,16 @@ if [ -r "$RUNTIME_CONFIG" ]; then
   set +a
 fi
 
-KEY_FILE="${NEWS_KEYS_FILE:-"$PROJECT_ROOT/.local/keys.env"}"
+[ "$ENV_NEWS_KEYS_FILE_SET" = "x" ] && NEWS_KEYS_FILE="$ENV_NEWS_KEYS_FILE"
+[ "$ENV_NEWS_STORE_PATH_SET" = "x" ] && NEWS_STORE_PATH="$ENV_NEWS_STORE_PATH"
+[ "$ENV_NEWS_LOG_DIR_SET" = "x" ] && NEWS_LOG_DIR="$ENV_NEWS_LOG_DIR"
+[ "$ENV_RSS_FEED_URL_SET" = "x" ] && RSS_FEED_URL="$ENV_RSS_FEED_URL"
+[ "$ENV_NEWS_RSS_FEED_URL_SET" = "x" ] && NEWS_RSS_FEED_URL="$ENV_NEWS_RSS_FEED_URL"
+[ "$ENV_NEWS_PYTHON_SET" = "x" ] && NEWS_PYTHON="$ENV_NEWS_PYTHON"
+[ "$ENV_NEWS_HTTP_PROXY_SET" = "x" ] && NEWS_HTTP_PROXY="$ENV_NEWS_HTTP_PROXY"
+[ "$ENV_NEWS_SHOW_STORE_AFTER_RUN_SET" = "x" ] && NEWS_SHOW_STORE_AFTER_RUN="$ENV_NEWS_SHOW_STORE_AFTER_RUN"
+
+KEY_FILE="${NEWS_KEYS_FILE:-"$HOME/.config/news-llm/keys.env"}"
 STORE_PATH="${NEWS_STORE_PATH:-"$PROJECT_ROOT/.local/news-data/live-store.db"}"
 LOG_DIR="${NEWS_LOG_DIR:-"$PROJECT_ROOT/.local/news-data/logs"}"
 RSS_FEED_URL="${RSS_FEED_URL:-${NEWS_RSS_FEED_URL:-"https://www.servethehome.com/feed/"}}"
@@ -37,7 +64,7 @@ if [ ! -x "$PYTHON_BIN" ]; then
   PYTHON_BIN="$(command -v python3 || true)"
 fi
 
-mkdir -p "$(dirname "$STORE_PATH")" "$LOG_DIR"
+mkdir -p "$(dirname "$KEY_FILE")" "$(dirname "$STORE_PATH")" "$LOG_DIR"
 LOG_FILE="$LOG_DIR/$(date +%F).log"
 
 (
@@ -51,6 +78,8 @@ LOG_FILE="$LOG_DIR/$(date +%F).log"
 
   if [ ! -r "$KEY_FILE" ]; then
     echo "missing key file: $KEY_FILE"
+    echo "create it outside the public repo, for example: $HOME/.config/news-llm/keys.env"
+    echo "see config/runtime.env.example and openspec/changes/operationalize-scheduled-run/README.md"
     exit 2
   fi
 

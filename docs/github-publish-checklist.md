@@ -15,7 +15,8 @@ Safe to commit:
 
 Never commit:
 
-- `.local/keys.env`
+- `~/.config/news-llm/keys.env`
+- any repo-local key copy such as `.local/keys.env`
 - `.local/runtime.env`
 - `.local/news-data/*.db`
 - `.local/news-data/logs/`
@@ -26,13 +27,20 @@ Never commit:
 The scheduled runner defaults to project-local private paths:
 
 ```text
-.local/keys.env
 .local/runtime.env
 .local/news-data/live-store.db
 .local/news-data/logs/YYYY-MM-DD.log
 ```
 
 `.local/` is ignored by git.
+
+Secrets stay outside the repo:
+
+```text
+~/.config/news-llm/keys.env
+```
+
+That file should be mode `600` and contain `DEEPSEEK_API_KEY` and `TUSHARE_TOKEN`.
 
 ## Initial Git Setup
 
