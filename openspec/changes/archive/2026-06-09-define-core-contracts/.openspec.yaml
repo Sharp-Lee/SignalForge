@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-06-09
+goal: Externalize drifting analysis context into stable versioned contracts so
+  human and AI share one reference; enforce signal/logic/buy-point separation
+  and the tradeability discipline from the research summary

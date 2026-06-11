@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-06-10
+goal: Make analysis and target generation reason with a real Claude model while
+  keeping the HTTP call behind an injectable transport so tests stay offline

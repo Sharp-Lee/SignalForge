@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-06-09
+goal: Let real data flow into the memory base via the existing Adapter
+  framework, keeping I/O behind injectable seams so tests stay fully offline

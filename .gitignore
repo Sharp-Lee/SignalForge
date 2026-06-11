@@ -1,0 +1,26 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local runtime state and secrets. Do not commit.
+.local/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Local agent/editor workflow caches.
+.agents/
+.claude/
+
+# Python environments and build outputs.
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Editor noise.
+.idea/
+.vscode/

@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-06-09
+goal: "Let real signals flow into the pipeline: a uniform Adapter framework
+  (source -> signal-contract, incremental, mockable I/O), reference global
+  adapters, and a reverse-intake skeleton, without touching downstream layers"

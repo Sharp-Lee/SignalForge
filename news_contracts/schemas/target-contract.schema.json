@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "target-contract",
+  "type": "object",
+  "required": ["id", "symbol", "name", "target_market", "thesis_ids", "logic_score", "buy_point", "state", "catalysts", "exit_triggers", "priced_in"],
+  "properties": {
+    "id": {"type": "string"},
+    "symbol": {"type": "string"},
+    "name": {"type": "string"},
+    "target_market": {"type": "string", "minLength": 1},
+    "thesis_ids": {"type": "array", "items": {"type": "string"}},
+    "logic_score": {
+      "type": "object",
+      "required": ["score", "rationale"],
+      "properties": {
+        "score": {"type": "number", "minimum": 0, "maximum": 100},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
+    "buy_point": {
+      "type": "object",
+      "required": ["status", "rationale", "price_change_since_signal"],
+      "properties": {
+        "status": {"type": "string", "enum": ["favorable", "neutral", "unfavorable"]},
+        "rationale": {"type": "string", "minLength": 1},
+        "price_change_since_signal": {"type": "number"}
+      }
+    },
+    "state": {"type": "string", "enum": ["watch", "review-required", "buy-zone", "hold", "exit"]},
+    "catalysts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "kind": {"type": "string"},
+          "value": {"type": "string"},
+          "description": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "exit_triggers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description"],
+        "properties": {
+          "description": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "priced_in": {
+      "type": "object",
+      "required": ["price_change_since_signal", "risk"],
+      "properties": {
+        "price_change_since_signal": {"type": "number"},
+        "risk": {"type": "string"}
+      }
+    }
+  }
+}

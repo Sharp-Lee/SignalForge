@@ -1,0 +1,48 @@
+"""Reviewed A-share universe scope for AI-server and semiconductor themes.
+
+Company names are intentionally not stored here. Runtime universe construction
+must stamp names from Tushare/AkShare provider security lists.
+"""
+
+DEFAULT_A_SHARE_ALLOWLIST = [
+    "300308.SZ",
+    "300502.SZ",
+    "002463.SZ",
+    "002851.SZ",
+    "300394.SZ",
+    "300570.SZ",
+    "300620.SZ",
+    "300548.SZ",
+    "688498.SH",
+    "688205.SH",
+    "600522.SH",
+    "600487.SH",
+    "002281.SZ",
+    "000988.SZ",
+    "002916.SZ",
+    "603228.SH",
+    "002384.SZ",
+    "600183.SH",
+    "688183.SH",
+    "002436.SZ",
+    "300476.SZ",
+    "002475.SZ",
+    "601138.SH",
+    "000977.SZ",
+    "603019.SH",
+    "000938.SZ",
+    "688041.SH",
+    "688256.SH",
+    "603986.SH",
+    "002371.SZ",
+    "688012.SH",
+    "688008.SH",
+    "002156.SZ",
+    "600584.SH",
+    "688525.SH",
+    "000063.SZ",
+    "300604.SZ",
+    "688072.SH",
+    "688409.SH",
+    "688981.SH",
+]

@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-06-09
+goal: Turn signals into confirmed theses through the contracted three-step
+  pipeline, reusing thesis-contract validation, keeping LLM I/O injectable so
+  tests stay offline

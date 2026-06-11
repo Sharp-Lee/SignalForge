@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-06-10
+goal: Demonstrate a signal flowing end-to-end into a watchlist by composing
+  run_once, analyze, and propose_targets, with the real-provider injection
+  points in place; no scheduling, clustering, or real providers in this change

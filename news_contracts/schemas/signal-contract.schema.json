@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "signal-contract",
+  "type": "object",
+  "required": ["id", "source", "title", "body", "signal_origin", "type_tag", "raw_payload"],
+  "properties": {
+    "id": {"type": "string"},
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "published_at", "url"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "published_at": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "minLength": 1}
+      }
+    },
+    "title": {"type": "string", "minLength": 1},
+    "body": {"type": "string", "minLength": 1},
+    "signal_origin": {
+      "type": "string",
+      "enum": ["news", "market_move", "last30days_attention"]
+    },
+    "type_tag": {
+      "type": "string",
+      "enum": ["supply_demand_bottleneck", "policy", "weather_climate", "export_control_geopolitics", "technology_inflection", "other"]
+    },
+    "triage": {
+      "type": "object",
+      "properties": {
+        "excluded": {"type": "boolean"},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "strategy": {"type": "string"}
+      }
+    },
+    "raw_payload": {"type": "object"},
+    "trigger_reason": {
+      "type": "object",
+      "properties": {
+        "source_strength": {"type": "boolean"},
+        "quantified_impact": {"type": "boolean"},
+        "cross_market_transmission": {"type": "boolean"},
+        "significant_market_move": {"type": "boolean"},
+        "summary": {"type": "string"}
+      }
+    }
+  }
+}
