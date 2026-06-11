@@ -3,17 +3,30 @@ from __future__ import annotations
 import json
 
 
+LANGUAGE_RULE = (
+    "All human-readable prose, descriptions, notes, rationales, counterarguments, hedge variables, "
+    "catalysts, and exit triggers MUST be written in Simplified Chinese (简体中文). "
+    "枚举字段值必须保持英文 token, 绝不翻译: "
+    "direction(bullish/bearish/neutral/mixed), confidence(low/medium/high), "
+    "buy_point.status(favorable/neutral/unfavorable)."
+)
+
+
 AUTHOR_SYSTEM = """You are synthesis-author for a personal alpha research system.
-Generate free-form investment theses from provided signals. Preserve intuition and cross-domain reasoning, but every source reference must use only PROVIDED_SIGNAL_IDS. If a claim has no support, leave its source_signal_ids empty and mark uncertainty."""
+Generate free-form investment theses from provided signals. Preserve intuition and cross-domain reasoning, but every source reference must use only PROVIDED_SIGNAL_IDS. If a claim has no support, leave its source_signal_ids empty and mark uncertainty.
+All human-readable prose, descriptions, notes, rationales, counterarguments, hedge variables, catalysts, and exit triggers MUST be written in Simplified Chinese (简体中文). 枚举字段值必须保持英文 token, 绝不翻译: direction(bullish/bearish/neutral/mixed), confidence(low/medium/high), buy_point.status(favorable/neutral/unfavorable)."""
 
 CRITIQUE_SYSTEM = """You are synthesis-author running completeness critique.
-Ask what second-order impact may be missing. Record notes and candidate thesis ids only. Do not rewrite the thesis body."""
+Ask what second-order impact may be missing. Record notes and candidate thesis ids only. Do not rewrite the thesis body.
+All human-readable prose, descriptions, notes, rationales, counterarguments, hedge variables, catalysts, and exit triggers MUST be written in Simplified Chinese (简体中文). 枚举字段值必须保持英文 token, 绝不翻译: direction(bullish/bearish/neutral/mixed), confidence(low/medium/high), buy_point.status(favorable/neutral/unfavorable)."""
 
 REVIEWER_SYSTEM = """You are skeptic-reviewer, a hostile short-seller adversary.
-Your job is to kill weak theses, not to endorse them. Produce the strongest counterargument and concrete hedge variables. Do not create review_session metadata."""
+Your job is to kill weak theses, not to endorse them. Produce the strongest counterargument and concrete hedge variables. Do not create review_session metadata.
+All human-readable prose, descriptions, notes, rationales, counterarguments, hedge variables, catalysts, and exit triggers MUST be written in Simplified Chinese (简体中文). 枚举字段值必须保持英文 token, 绝不翻译: direction(bullish/bearish/neutral/mixed), confidence(low/medium/high), buy_point.status(favorable/neutral/unfavorable)."""
 
 TARGET_SYSTEM = """You are target-analyst for a personal alpha watchlist.
 Propose only securities that directly follow from the confirmed thesis. Keep logic_score (good business/theme fit) separate from buy_point (good entry). Good company is not good buy point. Use only allowed symbols when provided.
+All human-readable prose, descriptions, notes, rationales, counterarguments, hedge variables, catalysts, and exit triggers MUST be written in Simplified Chinese (简体中文). 枚举字段值必须保持英文 token, 绝不翻译: direction(bullish/bearish/neutral/mixed), confidence(low/medium/high), buy_point.status(favorable/neutral/unfavorable).
 
 logic_score.score MUST be an integer on a 0-100 scale, never a 1-10 score:
 - 80-100 = strong direct beneficiary
@@ -32,6 +45,7 @@ def render_reasoner_user(role: str, context: dict) -> str:
                 "PROVIDED_SIGNAL_IDS": context.get("source_signal_ids", []),
                 "signals": context.get("signals", []),
                 "rules": [
+                    LANGUAGE_RULE,
                     "Only use ids from PROVIDED_SIGNAL_IDS in every source_signal_ids array.",
                     "Do not invent source ids.",
                     "Use empty source_signal_ids plus uncertainty_tags for unsupported claims.",
@@ -47,6 +61,7 @@ def render_reasoner_user(role: str, context: dict) -> str:
                 "PROVIDED_SIGNAL_IDS": context.get("source_signal_ids", []),
                 "signals": context.get("signals", []),
                 "rules": [
+                    LANGUAGE_RULE,
                     "Return at least one note.",
                     "Do not include or rewrite body.",
                     "Set body_unchanged true.",
@@ -62,6 +77,7 @@ def render_reasoner_user(role: str, context: dict) -> str:
                 "PROVIDED_SIGNAL_IDS": context.get("source_signal_ids", []),
                 "signals": context.get("signals", []),
                 "rules": [
+                    LANGUAGE_RULE,
                     "Return a non-empty strongest_counterargument.",
                     "Return at least one hedge variable.",
                     "Do not create review_session metadata.",
@@ -89,6 +105,7 @@ def render_target_user(thesis: dict, symbol_universe: dict[str, str] | None) -> 
                 "forbidden": "Do not use a 1-10 score.",
             },
             "rules": [
+                LANGUAGE_RULE,
                 "Return candidates under top-level candidates.",
                 "Do not produce state, priced_in, thesis_ids, or name.",
                 "Keep logic_score and buy_point separate.",
