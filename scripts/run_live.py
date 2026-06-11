@@ -33,7 +33,6 @@ from llm_provider.transport import (  # noqa: E402
     AnthropicCompletion,
     LlmProviderError,
     OpenAICompatibleCompletion,
-    ResponsesAPICompletion,
 )
 from news_contracts.storage import ContractStore  # noqa: E402
 from news_contracts.validation import validate_target, validate_thesis  # noqa: E402
@@ -112,7 +111,7 @@ def build_transport(name: str):
         if not base_url or not os.environ.get("RELAY_API_KEY"):
             raise SystemExit("RELAY_BASE_URL / RELAY_API_KEY not set (source your keys file first)")
         model = os.environ.get("RELAY_MODEL", "claude-opus-4-8")
-        fmt = os.environ.get("RELAY_FORMAT", "openai")  # "openai" | "anthropic" | "responses"
+        fmt = os.environ.get("RELAY_FORMAT", "openai")  # "openai" | "anthropic"
         if fmt == "anthropic":
             import anthropic
 
@@ -126,13 +125,6 @@ def build_transport(name: str):
                 default_headers=headers or None,
             )
             return AnthropicCompletion(model=model, client=client, base_url=base_url)
-        if fmt == "responses":
-            return ResponsesAPICompletion(
-                model=model,
-                base_url=base_url,
-                api_key_env="RELAY_API_KEY",
-                json_mode=os.environ.get("RELAY_JSON_MODE", "schema"),
-            )
         return OpenAICompatibleCompletion(
             model=model,
             base_url=base_url,

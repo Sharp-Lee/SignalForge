@@ -11,7 +11,6 @@ from .transport import (
     Completion,
     LlmProviderError,
     OpenAICompatibleCompletion,
-    ResponsesAPICompletion,
     UsageRecord,
 )
 from .validation import (
@@ -30,7 +29,6 @@ __all__ = [
     "FREE_GENERATION_SCHEMA",
     "LlmProviderError",
     "OpenAICompatibleCompletion",
-    "ResponsesAPICompletion",
     "TARGET_PROPOSAL_SCHEMA",
     "UsageRecord",
     "enforce_adversarial_output",

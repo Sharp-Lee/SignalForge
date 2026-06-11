@@ -11,7 +11,6 @@ from llm_provider import (
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
     OpenAICompatibleCompletion,
-    ResponsesAPICompletion,
     TARGET_PROPOSAL_SCHEMA,
     AnthropicCompletion,
     LlmProviderError,
@@ -309,106 +308,6 @@ def test_openai_compatible_completion_lazy_client_without_env(monkeypatch):
         model="compat-model",
         base_url="https://compat.example/v1",
     )
-
-    assert completion._client is None
-
-
-def test_responses_api_completion_schema_mode_parses_output_text_and_records_usage():
-    client = fake_responses_client(status="completed", output_text=json.dumps({"ok": True}))
-    completion = ResponsesAPICompletion(
-        model="gpt-5-codex",
-        base_url="https://anyrouter.top/v1",
-        client=client,
-    )
-    schema = {"title": "role", "type": "object", "properties": {"ok": {"type": "boolean"}}}
-
-    result = completion(system="s", user="u", schema=schema, max_tokens=20, thinking={"type": "adaptive"})
-
-    assert result == {"ok": True}
-    assert client.kwargs["model"] == "gpt-5-codex"
-    assert client.kwargs["instructions"] == "s"
-    assert client.kwargs["input"] == "u"
-    assert client.kwargs["max_output_tokens"] == 20
-    assert client.kwargs["text"] == {
-        "format": {"type": "json_schema", "name": "role", "schema": schema, "strict": True}
-    }
-    assert "reasoning" not in client.kwargs
-    assert completion.usage[0].input_tokens == 13
-    assert completion.usage[0].output_tokens == 8
-
-
-def test_responses_api_completion_object_mode_appends_schema_to_prompt():
-    client = fake_responses_client(status="completed", output_text=json.dumps({"ok": True}))
-    completion = ResponsesAPICompletion(
-        model="gpt-5-codex",
-        base_url="https://anyrouter.top/v1",
-        json_mode="object",
-        client=client,
-    )
-    schema = {"title": "object_role", "type": "object", "properties": {"ok": {"type": "boolean"}}}
-
-    result = completion(system="s", user="original prompt", schema=schema, max_tokens=20, thinking=None)
-
-    assert result == {"ok": True}
-    assert client.kwargs["text"] == {"format": {"type": "json_object"}}
-    assert "original prompt" in client.kwargs["input"]
-    assert "You MUST respond with a JSON object conforming to this schema" in client.kwargs["input"]
-    assert '"title": "object_role"' in client.kwargs["input"]
-
-
-def test_responses_api_completion_reads_nested_output_content():
-    content = [SimpleNamespace(text=json.dumps({"ok": True}))]
-    output = [SimpleNamespace(content=content)]
-    completion = ResponsesAPICompletion(
-        model="gpt-5-codex",
-        base_url="https://anyrouter.top/v1",
-        client=fake_responses_client(status="completed", output_text=None, output=output),
-    )
-
-    assert completion(system="s", user="u", schema={"title": "role"}, max_tokens=10, thinking=None) == {"ok": True}
-
-
-@pytest.mark.parametrize("status", ["incomplete", "failed"])
-def test_responses_api_completion_rejects_incomplete_or_failed(status):
-    completion = ResponsesAPICompletion(
-        model="gpt-5-codex",
-        base_url="https://anyrouter.top/v1",
-        client=fake_responses_client(status=status, output_text=json.dumps({"ok": True}), reason="max_output_tokens"),
-    )
-
-    with pytest.raises(LlmProviderError, match="responses-api stopped"):
-        completion(system="s", user="u", schema={"title": "role"}, max_tokens=10, thinking=None)
-
-
-def test_responses_api_completion_rejects_bad_json_non_object_and_missing_text():
-    bad_json = ResponsesAPICompletion(
-        model="gpt-5-codex",
-        base_url="https://anyrouter.top/v1",
-        client=fake_responses_client(status="completed", output_text="not-json"),
-    )
-    with pytest.raises(LlmProviderError, match="invalid JSON"):
-        bad_json(system="s", user="u", schema={"title": "role"}, max_tokens=10, thinking=None)
-
-    non_object = ResponsesAPICompletion(
-        model="gpt-5-codex",
-        base_url="https://anyrouter.top/v1",
-        client=fake_responses_client(status="completed", output_text=json.dumps([{"ok": True}])),
-    )
-    with pytest.raises(LlmProviderError, match="must be an object"):
-        non_object(system="s", user="u", schema={"title": "role"}, max_tokens=10, thinking=None)
-
-    missing = ResponsesAPICompletion(
-        model="gpt-5-codex",
-        base_url="https://anyrouter.top/v1",
-        client=fake_responses_client(status="completed", output_text=None, output=[]),
-    )
-    with pytest.raises(LlmProviderError, match="text output"):
-        missing(system="s", user="u", schema={"title": "role"}, max_tokens=10, thinking=None)
-
-
-def test_responses_api_completion_lazy_client_without_env(monkeypatch):
-    monkeypatch.delenv("RELAY_API_KEY", raising=False)
-    completion = ResponsesAPICompletion(model="gpt-5-codex")
 
     assert completion._client is None
 
@@ -772,36 +671,6 @@ def fake_openai_client(finish_reason: str, content: str):
         @property
         def kwargs(self):
             return self._completions.kwargs
-
-    return FakeClient()
-
-
-def fake_responses_client(status: str, output_text: str | None, output=None, reason: str | None = None):
-    response = SimpleNamespace(
-        status=status,
-        output_text=output_text,
-        output=output or [],
-        incomplete_details=SimpleNamespace(reason=reason) if reason else None,
-        usage=SimpleNamespace(input_tokens=13, output_tokens=8),
-    )
-
-    class FakeResponses:
-        def __init__(self):
-            self.kwargs = None
-
-        def create(self, **kwargs):
-            self.kwargs = kwargs
-            return response
-
-    class FakeClient:
-        def __init__(self):
-            responses = FakeResponses()
-            self.responses = responses
-            self._responses = responses
-
-        @property
-        def kwargs(self):
-            return self._responses.kwargs
 
     return FakeClient()
 
