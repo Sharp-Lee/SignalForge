@@ -1,0 +1,51 @@
+[
+  {
+    "id": "rss:servethehome",
+    "name": "ServeTheHome",
+    "url": "https://www.servethehome.com/feed/",
+    "enabled": true,
+    "quality": "industry"
+  },
+  {
+    "id": "rss:eetimes",
+    "name": "EE Times",
+    "url": "https://www.eetimes.com/feed/",
+    "enabled": true,
+    "quality": "industry"
+  },
+  {
+    "id": "rss:semiwiki",
+    "name": "SemiWiki",
+    "url": "https://semiwiki.com/feed/",
+    "enabled": true,
+    "quality": "industry"
+  },
+  {
+    "id": "rss:edn",
+    "name": "EDN",
+    "url": "https://www.edn.com/feed/",
+    "enabled": true,
+    "quality": "industry"
+  },
+  {
+    "id": "rss:theregister",
+    "name": "The Register",
+    "url": "https://www.theregister.com/headlines.atom",
+    "enabled": false,
+    "quality": "broad"
+  },
+  {
+    "id": "rss:tomshardware",
+    "name": "Tom's Hardware",
+    "url": "https://www.tomshardware.com/feeds/all",
+    "enabled": false,
+    "quality": "broad"
+  },
+  {
+    "id": "rss:techpowerup",
+    "name": "TechPowerUp",
+    "url": "https://www.techpowerup.com/rss/news",
+    "enabled": false,
+    "quality": "broad"
+  }
+]

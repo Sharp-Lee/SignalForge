@@ -36,15 +36,17 @@ from llm_provider.transport import (  # noqa: E402
 )
 from news_contracts.storage import ContractStore  # noqa: E402
 from news_contracts.validation import validate_target, validate_thesis  # noqa: E402
-from pipeline_orchestration import run_pipeline  # noqa: E402
+from pipeline_orchestration import analyze_pending, capture_sources, run_pipeline, signal_analysis_counts  # noqa: E402
 from market_data import (  # noqa: E402
     RealPriceLookup,
     build_default_provider_chain,
     build_default_universe,
 )
 from source_ingestion.adapters.rss import RssAtomAdapter  # noqa: E402
+from source_ingestion.feed_config import build_rss_adapters, load_rss_source_configs  # noqa: E402
 from source_ingestion.fetchers.rss import RssHttpFetcher  # noqa: E402
 from target_generation import LlmTargetProposer, StubPriceLookup, propose_targets  # noqa: E402
+from scripts.generate_digest import generate_digest  # noqa: E402
 
 SECRET_ENV_VARS = ("DEEPSEEK_API_KEY", "RELAY_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "TUSHARE_TOKEN")
 
@@ -275,6 +277,24 @@ def print_store_counts(store) -> None:
     safe_print(f"  track_record : {counts['track_record']}")
 
 
+def print_analysis_state_counts(store) -> None:
+    if not hasattr(store, "connection"):
+        return
+    counts = signal_analysis_counts(store)
+    safe_print("ANALYSIS STATE")
+    safe_print(f"  pending        : {counts['pending']}")
+    safe_print(f"  analyzed       : {counts['analyzed']}")
+    safe_print(f"  skipped_stale  : {counts['skipped_stale']}")
+    safe_print(f"  skipped_failed : {counts['skipped_failed']}")
+
+
+def print_analysis_selection(result) -> None:
+    safe_print("ANALYSIS SELECTION")
+    safe_print(f"  pending_before : {getattr(result, 'pending_count', 0)}")
+    safe_print(f"  clusters       : {getattr(result, 'cluster_count', 0)}")
+    safe_print(f"  selected       : {getattr(result, 'selected_cluster_count', 0)}")
+
+
 def _store_counts(store) -> dict[str, int]:
     if not hasattr(store, "connection"):
         return {}
@@ -290,6 +310,16 @@ def _close_store(store) -> None:
     connection = getattr(store, "connection", None)
     if connection is not None:
         connection.close()
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise SystemExit(f"{name} must be an integer") from exc
 
 
 def print_pipeline_targets(result, *, price_layer: str, universe_source: str) -> None:
@@ -367,19 +397,24 @@ def open_pipeline_store(store_path: Path | None):
         _close_store(store)
 
 
-def run_live_pipeline(*, stub_market_data: bool = False, store_path: Path | None = None) -> int:
+def build_live_rss_adapters():
     feed_url = os.environ.get("RSS_FEED_URL")
-    if not feed_url:
-        raise SystemExit("RSS_FEED_URL not set (export a focused RSS/Atom feed URL first)")
-    source_id = os.environ.get("RSS_SOURCE_ID", "rss:live")
-    source_name = os.environ.get("RSS_SOURCE_NAME", "Live RSS")
+    if feed_url:
+        source_id = os.environ.get("RSS_SOURCE_ID", "rss:live")
+        source_name = os.environ.get("RSS_SOURCE_NAME", "Live RSS")
+        return [RssAtomAdapter(source_id, source_name, RssHttpFetcher(feed_url))]
+    adapters = build_rss_adapters(load_rss_source_configs())
+    if not adapters:
+        raise SystemExit("no enabled RSS sources (set RSS_FEED_URL or NEWS_RSS_SOURCES_FILE)")
+    return adapters
 
+
+def _build_live_analysis_components(*, stub_market_data: bool = False):
     author_transport = build_transport("deepseek")
     reviewer_transport = build_transport("deepseek")
     proposer_transport = build_transport("deepseek")
     author = LlmReasoner(ReasonerIdentity("author-live-1", "synthesis-author"), transport=author_transport)
     reviewer = LlmReasoner(ReasonerIdentity("reviewer-live-1", "skeptic-reviewer"), transport=reviewer_transport)
-    adapter = RssAtomAdapter(source_id, source_name, RssHttpFetcher(feed_url))
 
     provider_chain = None
     universe_source = "fixture"
@@ -398,31 +433,75 @@ def run_live_pipeline(*, stub_market_data: bool = False, store_path: Path | None
         price_layer = "REAL"
 
     proposer = LlmTargetProposer(transport=proposer_transport, symbol_universe=symbol_universe)
+    return {
+        "author_transport": author_transport,
+        "reviewer_transport": reviewer_transport,
+        "proposer_transport": proposer_transport,
+        "author": author,
+        "reviewer": reviewer,
+        "provider_chain": provider_chain,
+        "universe_source": universe_source,
+        "universe_skipped_reasons": universe_skipped_reasons,
+        "price_layer": price_layer,
+        "symbol_universe": symbol_universe,
+        "proposer": proposer,
+    }
 
-    safe_print(f"→ pipeline=deepseek  source={source_id}  feed={feed_url}")
-    safe_print(f"→ market_data={price_layer}  universe_source={universe_source}  symbols={len(symbol_universe)}")
+
+def run_live_capture(*, store_path: Path | None = None) -> int:
+    adapters = build_live_rss_adapters()
+    safe_print(f"→ capture sources={len(adapters)}")
     safe_print(f"→ store={'TEMP' if store_path is None else Path(store_path).expanduser()}")
-    if universe_skipped_reasons:
-        safe_print(f"→ universe_skipped_reasons={universe_skipped_reasons}")
-    safe_print("→ calling real pipeline (RSS fetch → ingestion → analysis → target_generation)…\n")
+    safe_print("→ calling capture path (RSS fetch → ingestion only)…\n")
+    with open_pipeline_store(store_path) as (store, _resolved_store_path):
+        ingestion = capture_sources(store, adapters)
+        print_pipeline_ingestion(type("CaptureResult", (), {"ingestion": ingestion})())
+        print_store_counts(store)
+        print_analysis_state_counts(store)
+    return 0
+
+
+def run_live_analyze(
+    *,
+    stub_market_data: bool = False,
+    store_path: Path | None = None,
+    top_k: int = 5,
+    pending_max_age_days: int = 7,
+    max_attempts: int = 2,
+    generate_digest_after: bool = True,
+) -> int:
+    components = _build_live_analysis_components(stub_market_data=stub_market_data)
+    safe_print("→ analyze=deepseek  pending=true")
+    safe_print(
+        f"→ market_data={components['price_layer']}  "
+        f"universe_source={components['universe_source']}  symbols={len(components['symbol_universe'])}"
+    )
+    safe_print(f"→ budget top_k={top_k} pending_max_age_days={pending_max_age_days} max_attempts={max_attempts}")
+    safe_print(f"→ store={'TEMP' if store_path is None else Path(store_path).expanduser()}")
+    if components["universe_skipped_reasons"]:
+        safe_print(f"→ universe_skipped_reasons={components['universe_skipped_reasons']}")
+    safe_print("→ calling analyze path (pending → clustering → top-K → analysis → target_generation)…\n")
 
     with open_pipeline_store(store_path) as (store, _resolved_store_path):
         price_lookup = (
             StubPriceLookup(TARGET_PRICE_CHANGES)
             if stub_market_data
-            else RealPriceLookup(store, provider_chain)
+            else RealPriceLookup(store, components["provider_chain"])
         )
-        result = run_pipeline(
-            adapters=[adapter],
-            author_reasoner=author,
-            reviewer_reasoner=reviewer,
-            proposer=proposer,
+        result = analyze_pending(
+            store,
+            author_reasoner=components["author"],
+            reviewer_reasoner=components["reviewer"],
+            proposer=components["proposer"],
             price_lookup=price_lookup,
-            store=store,
             period="live",
+            top_k=top_k,
+            pending_max_age_days=pending_max_age_days,
+            max_attempts=max_attempts,
         )
-        print_pipeline_ingestion(result)
         print_store_counts(store)
+        print_analysis_selection(result)
+        print_analysis_state_counts(store)
         if result.theses:
             safe_print(f"thesis_count: {len(result.theses)}")
             for index, thesis in enumerate(result.theses, start=1):
@@ -436,14 +515,96 @@ def run_live_pipeline(*, stub_market_data: bool = False, store_path: Path | None
         else:
             safe_print("")
             safe_print("theses: []")
-        print_pipeline_targets(result, price_layer=price_layer, universe_source=universe_source)
+        print_pipeline_targets(
+            result,
+            price_layer=components["price_layer"],
+            universe_source=components["universe_source"],
+        )
+        print_pipeline_errors(result.errors)
+        if generate_digest_after and store_path is not None:
+            digest = generate_digest(store_path=store_path)
+            safe_print("")
+            safe_print(f"digest_markdown={digest.markdown_path}")
+            safe_print(f"digest_html={digest.html_path}")
+        safe_print("")
+        safe_print("=" * 72)
+        safe_print("usage:")
+        print_usage("author", components["author_transport"])
+        print_usage("reviewer", components["reviewer_transport"])
+        print_usage("proposer", components["proposer_transport"])
+        safe_print("=" * 72)
+    return 0
+
+
+def run_live_pipeline(
+    *,
+    stub_market_data: bool = False,
+    store_path: Path | None = None,
+    top_k: int = 5,
+    pending_max_age_days: int = 7,
+    max_attempts: int = 2,
+) -> int:
+    adapters = build_live_rss_adapters()
+    components = _build_live_analysis_components(stub_market_data=stub_market_data)
+
+    safe_print(f"→ pipeline=deepseek  sources={len(adapters)}")
+    safe_print(
+        f"→ market_data={components['price_layer']}  "
+        f"universe_source={components['universe_source']}  symbols={len(components['symbol_universe'])}"
+    )
+    safe_print(f"→ budget top_k={top_k} pending_max_age_days={pending_max_age_days} max_attempts={max_attempts}")
+    safe_print(f"→ store={'TEMP' if store_path is None else Path(store_path).expanduser()}")
+    if components["universe_skipped_reasons"]:
+        safe_print(f"→ universe_skipped_reasons={components['universe_skipped_reasons']}")
+    safe_print("→ calling real pipeline (capture → pending analysis → target_generation)…\n")
+
+    with open_pipeline_store(store_path) as (store, _resolved_store_path):
+        price_lookup = (
+            StubPriceLookup(TARGET_PRICE_CHANGES)
+            if stub_market_data
+            else RealPriceLookup(store, components["provider_chain"])
+        )
+        result = run_pipeline(
+            adapters=adapters,
+            author_reasoner=components["author"],
+            reviewer_reasoner=components["reviewer"],
+            proposer=components["proposer"],
+            price_lookup=price_lookup,
+            store=store,
+            period="live",
+            top_k=top_k,
+            pending_max_age_days=pending_max_age_days,
+            max_attempts=max_attempts,
+        )
+        print_pipeline_ingestion(result)
+        print_store_counts(store)
+        print_analysis_selection(result)
+        print_analysis_state_counts(store)
+        if result.theses:
+            safe_print(f"thesis_count: {len(result.theses)}")
+            for index, thesis in enumerate(result.theses, start=1):
+                safe_print("")
+                print_thesis(thesis, heading=f"PIPELINE THESIS #{index}")
+                verdict = validate_thesis(thesis)
+                safe_print("")
+                safe_print(f"validate_thesis.accepted = {verdict.accepted}")
+                if not verdict.accepted:
+                    safe_print(f"reasons: {getattr(verdict, 'reasons', None)}")
+        else:
+            safe_print("")
+            safe_print("theses: []")
+        print_pipeline_targets(
+            result,
+            price_layer=components["price_layer"],
+            universe_source=components["universe_source"],
+        )
         print_pipeline_errors(result.errors)
         safe_print("")
         safe_print("=" * 72)
         safe_print("usage:")
-        print_usage("author", author_transport)
-        print_usage("reviewer", reviewer_transport)
-        print_usage("proposer", proposer_transport)
+        print_usage("author", components["author_transport"])
+        print_usage("reviewer", components["reviewer_transport"])
+        print_usage("proposer", components["proposer_transport"])
         safe_print("=" * 72)
     return 0
 
@@ -463,6 +624,7 @@ def show_store(store_path: Path) -> int:
         safe_print(f"thesis_count: {counts['theses']}")
         safe_print(f"target_count: {counts['targets']}")
         safe_print(f"track_record_count: {counts['track_record']}")
+        print_analysis_state_counts(store)
 
         safe_print("")
         safe_print("THESES")
@@ -507,16 +669,52 @@ def main() -> int:
     parser.add_argument("--reviewer", default=None, choices=["deepseek", "relay"])
     parser.add_argument("--targets", action="store_true", help="After analysis, run target generation live smoke.")
     parser.add_argument("--pipeline", action="store_true", help="Run live RSS ingestion through analysis and target generation.")
+    parser.add_argument("--capture", action="store_true", help="Run capture only: fetch configured RSS sources and persist accepted signals.")
+    parser.add_argument("--analyze", action="store_true", help="Run pending analysis only: cluster pending signals and process top-K.")
     parser.add_argument("--stub-market-data", action="store_true", help="Use fixture universe and stub prices in pipeline mode.")
     parser.add_argument("--store", type=Path, default=None, help="Persistent pipeline store path, e.g. .local/news-data/store.db.")
     parser.add_argument("--show-store", type=Path, default=None, help="Print accumulated thesis/target summaries from a persistent store.")
+    parser.add_argument("--top-k", type=int, default=_env_int("NEWS_ANALYZE_TOP_K", 5), help="Maximum pending clusters to analyze.")
+    parser.add_argument(
+        "--pending-max-age-days",
+        type=int,
+        default=_env_int("NEWS_PENDING_MAX_AGE_DAYS", 7),
+        help="Mark pending signals older than this many days skipped_stale before analysis.",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=_env_int("NEWS_MAX_ANALYSIS_ATTEMPTS", 2),
+        help="Mark a repeatedly failing selected cluster skipped_failed after this many attempts.",
+    )
     args = parser.parse_args()
     if args.show_store is not None:
         return show_store(args.show_store)
+    selected_modes = sum(bool(value) for value in (args.pipeline, args.capture, args.analyze))
+    if selected_modes > 1:
+        raise SystemExit("choose only one of --pipeline, --capture, or --analyze")
+    if args.capture:
+        return run_live_capture(store_path=args.store)
+    if args.analyze:
+        if args.author != "deepseek" or args.reviewer is not None:
+            raise SystemExit("--analyze is scoped to DeepSeek; omit --author/--reviewer")
+        return run_live_analyze(
+            stub_market_data=args.stub_market_data,
+            store_path=args.store,
+            top_k=args.top_k,
+            pending_max_age_days=args.pending_max_age_days,
+            max_attempts=args.max_attempts,
+        )
     if args.pipeline:
         if args.author != "deepseek" or args.reviewer is not None:
             raise SystemExit("--pipeline is scoped to DeepSeek; omit --author/--reviewer")
-        return run_live_pipeline(stub_market_data=args.stub_market_data, store_path=args.store)
+        return run_live_pipeline(
+            stub_market_data=args.stub_market_data,
+            store_path=args.store,
+            top_k=args.top_k,
+            pending_max_age_days=args.pending_max_age_days,
+            max_attempts=args.max_attempts,
+        )
     reviewer_provider = args.reviewer or args.author
     if args.targets and args.author != "deepseek":
         raise SystemExit("--targets live smoke is scoped to --author deepseek")

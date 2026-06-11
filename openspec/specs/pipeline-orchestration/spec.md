@@ -61,17 +61,21 @@ This change MUST NOT implement daily/event/weekly scheduling, real provider cons
 
 ### Requirement: Clustered Signal Selection
 
-The pipeline MUST cluster newly persisted signals from the current run before analysis. It MUST call an injected signal clusterer when provided and MUST use the default deterministic clusterer otherwise. Each returned cluster MUST be analyzed independently, producing zero or one thesis per successful cluster. Clustering, not the analysis prompt, owns pre-analysis grouping.
+The pipeline MUST support analysis of pending accepted signals, not only signals newly persisted in the current run. Pending signals MUST be clustered before analysis. The live analyze path MUST analyze at most the selected top-K clusters and leave unselected clusters pending. Manual smoke operation MAY still compose capture and analyze in one command, but production scheduling MUST use explicit capture and analyze paths.
 
-#### Scenario: Newly persisted signals are clustered before analysis
-- **WHEN** ingestion persists multiple new signals during the current run
-- **THEN** the pipeline passes those signals through signal clustering before calling analysis
+#### Scenario: Pending signals are clustered before analysis
+- **WHEN** the analyze path runs with pending accepted signals
+- **THEN** it passes pending signals through signal clustering before calling analysis
 
-#### Scenario: Each cluster is analyzed independently
-- **WHEN** the clusterer returns multiple clusters
-- **THEN** the pipeline calls analysis separately for each cluster and may return multiple theses
+#### Scenario: Only selected clusters are analyzed
+- **WHEN** the selector returns fewer clusters than exist in pending
+- **THEN** the pipeline calls analysis only for selected clusters
 
-#### Scenario: Singleton clusters are analyzed
-- **WHEN** a new signal has no related signals in the current batch
-- **THEN** the pipeline analyzes it as a one-signal cluster
+#### Scenario: Unselected clusters are not errors
+- **WHEN** a pending cluster is not selected because of the top-K budget
+- **THEN** the pipeline does not record an error for that cluster and leaves it pending
+
+#### Scenario: Manual smoke can capture and analyze
+- **WHEN** a manual smoke command runs capture and analyze together
+- **THEN** it still uses the same pending analysis state and does not rely on a before/after signal diff
 
