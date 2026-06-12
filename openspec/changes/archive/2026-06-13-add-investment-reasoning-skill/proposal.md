@@ -4,11 +4,11 @@ The taxonomy now defines what kinds of investment logic exist, but the system st
 
 ## What Changes
 
-- Add an `investment-reasoning-skill` capability that defines a structured reasoning audit for a signal or signal cluster.
+- Add an `investment-reasoning-skill` capability that defines and implements a structured reasoning audit for a signal or signal cluster.
 - Define the audit shape: primary logic, optional secondary logic, evidence status, premise validation, upward validation, transmission chain, downstream decomposition, chokepoint candidates, missing evidence, disconfirming evidence, target-search decision, and public caveat.
 - Require the reasoning audit to be advisory metadata: it MUST guide analysis and review, but MUST NOT replace the free-form thesis body or directly create targets.
 - Define fail-closed states so weak or rejected logic does not imply target generation.
-- Keep this change contract/design-first. Runtime wiring into `analysis_orchestration`, prompt/schema changes, storage schema changes, target generation, and digest rendering remain future changes.
+- Add a pure Python schema/validator module and offline tests. Runtime wiring into `analysis_orchestration`, LLM prompts/schemas, storage schema changes, target generation, and digest rendering remain future changes.
 
 ## Capabilities
 
@@ -23,5 +23,6 @@ None.
 ## Impact
 
 - Adds OpenSpec artifacts for a new reasoning-skill capability.
-- Does not change code, prompts, schemas, persisted data, dependencies, scheduled jobs, or runtime behavior in this proposal.
+- Adds a new `investment_reasoning` module containing canonical taxonomy values, JSON Schema, and fail-closed audit validation.
+- Does not change prompts, existing schemas, persisted data, dependencies, scheduled jobs, or existing runtime behavior in this proposal.
 - Future changes can implement the audit as LLM provider schema, analysis metadata, storage, and digest display once this contract is reviewed.

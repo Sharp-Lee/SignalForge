@@ -56,9 +56,20 @@ The audit MUST include a public caveat that states the logic's dependency and un
 - **WHEN** an audit is later rendered into a public digest
 - **THEN** the caveat describes the logic as a research observation and states what evidence could weaken it
 
+### Requirement: Local Schema And Validator
+The system SHALL provide a local `investment_reasoning` module exposing canonical logic values, an `InvestmentReasoningAudit` JSON Schema, and a fail-closed validation function. The validator MUST run offline and MUST NOT call an LLM, network, market data provider, storage layer, or target generator.
+
+#### Scenario: Validator accepts a valid audit offline
+- **WHEN** a valid audit is passed to the validator with known source signal ids
+- **THEN** the validator returns the audit without calling external services
+
+#### Scenario: Validator rejects invalid audit gates
+- **WHEN** a weak or rejected audit allows target search
+- **THEN** the validator rejects it before any downstream target mapping can be implied
+
 ### Requirement: Runtime Behavior Remains Unchanged
-This change SHALL NOT modify analysis prompts, LLM provider schemas, thesis schema, target generation, chokepoint-map data, digest rendering, market data, scheduling, persisted data, or runtime behavior.
+This change SHALL NOT modify analysis prompts, LLM provider schemas, thesis schema, target generation, chokepoint-map data, digest rendering, market data, scheduling, persisted data, or existing runtime behavior.
 
 #### Scenario: Contract-only change has no runtime effect
 - **WHEN** this change is applied
-- **THEN** no runtime code path, prompt, schema, database table, scheduled job, or persisted data format changes
+- **THEN** no existing runtime code path, prompt, schema, database table, scheduled job, or persisted data format changes

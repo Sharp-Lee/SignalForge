@@ -12,13 +12,14 @@ signal facts
   -> target generation only if the logic is accepted
 ```
 
-This change is still contract/design-first. It defines the audit structure and boundaries but does not wire it into prompts, storage, analysis, target generation, or digest rendering.
+This change implements the audit structure as a pure module and tests. It does not wire it into prompts, storage, analysis, target generation, or digest rendering.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Define a canonical `InvestmentReasoningAudit` shape.
+- Provide canonical taxonomy constants, JSON Schema, and a fail-closed validator.
 - Require exactly one `primary_logic_type` and optional `secondary_logic_types`.
 - Require an `evidence_status` of `accepted`, `weak`, or `rejected`.
 - Preserve the taxonomy's upward validation, transmission-chain, downstream decomposition, chokepoint-candidate, and falsification checks.
@@ -28,7 +29,7 @@ This change is still contract/design-first. It defines the audit structure and b
 **Non-Goals:**
 
 - Do not change `thesis-contract` or its JSON schema in this change.
-- Do not change `analysis_orchestration`, `llm_provider`, `target_generation`, `daily-digest`, `chokepoint_map.json`, storage, or runtime behavior.
+- Do not change `analysis_orchestration`, `llm_provider`, `target_generation`, `daily-digest`, `chokepoint_map.json`, storage, or existing runtime behavior.
 - Do not implement a new LLM prompt or provider schema yet.
 - Do not require a rigid reasoning template inside the free-form thesis `body`.
 - Do not select or mutate targets from the audit alone.
@@ -41,7 +42,7 @@ The audit should be a structured companion to the analysis process. It may later
 
 Rationale: `thesis-contract` explicitly protects free-form generation. The audit should give the system a checklist and a record of what was validated, not turn the thesis into a fixed table.
 
-### D2. Minimal audit shape
+### D2. Minimal audit shape and local validator
 
 The recommended future shape is:
 
@@ -84,6 +85,15 @@ The recommended future shape is:
 
 This is intentionally smaller than a full research report. It captures the reasoning gate, not every detail of the thesis.
 
+The module-level validator should enforce:
+
+- canonical logic type values;
+- primary logic exactly once;
+- no duplicate primary in secondary types;
+- optional source provenance against an allowed signal-id set;
+- fail-closed target-search gating;
+- public caveat language that avoids recommendation phrases.
+
 ### D3. Evidence status gates target search
 
 The audit uses three evidence states:
@@ -125,11 +135,12 @@ Rationale: digest output is public-facing and must avoid turning reasoning into 
 ## Migration Plan
 
 1. Review and approve this reasoning-audit contract.
-2. Later change: add LLM provider schema/prompt for producing `InvestmentReasoningAudit` with offline tests.
-3. Later change: wire the audit into analysis orchestration while preserving free-form thesis body.
-4. Later change: persist the audit as optional thesis metadata or a separate analysis artifact.
-5. Later change: allow target generation to receive accepted audits and map candidates as context, while retaining target-contract validation and empty-output behavior.
-6. Later change: render digest cards that show the logic chain, missing evidence, and public caveat.
+2. This change: add `investment_reasoning` schema/validator module and offline tests.
+3. Later change: add LLM provider schema/prompt for producing `InvestmentReasoningAudit` with offline tests.
+4. Later change: wire the audit into analysis orchestration while preserving free-form thesis body.
+5. Later change: persist the audit as optional thesis metadata or a separate analysis artifact.
+6. Later change: allow target generation to receive accepted audits and map candidates as context, while retaining target-contract validation and empty-output behavior.
+7. Later change: render digest cards that show the logic chain, missing evidence, and public caveat.
 
 ## Open Questions
 
