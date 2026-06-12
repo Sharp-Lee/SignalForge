@@ -23,4 +23,4 @@
 - [x] 5.1 Run `python -m pytest tests/ -q`.
 - [x] 5.2 Run `openspec validate broaden-ai-ecosystem-sources --strict`.
 - [x] 5.3 Run a real capture against a temporary store and report per-source accepted counts plus sample titles across hardware, energy, and AI technology domains.
-- [ ] 5.4 Scan staged files for secrets, commit, and push.
+- [x] 5.4 Scan staged files for secrets, commit, and push.
