@@ -1,5 +1,6 @@
 from analysis_orchestration import ReasonerIdentity, StubReasoner
 from news_contracts.storage import ContractStore
+from pipeline_orchestration.core import _signal_score
 from pipeline_orchestration import run_pipeline
 from signal_clustering import SignalCluster
 from source_ingestion.adapters.rss import RssAtomAdapter
@@ -24,6 +25,28 @@ def rss_adapter_with_signal(signal_id: str = "sig-ai-server-1"):
             next_cursor="rss-cursor-1",
         ),
     )
+
+
+def test_signal_score_prioritizes_energy_infrastructure_terms():
+    score = _signal_score(
+        {
+            "title": "Data center utility signs 300 megawatt grid upgrade",
+            "body": "AI data center load requires power grid equipment, battery storage, and liquid cooling upgrades.",
+        }
+    )
+
+    assert score >= 5
+
+
+def test_signal_score_prioritizes_ai_software_adoption_terms():
+    score = _signal_score(
+        {
+            "title": "Enterprise AI agent adoption accelerates",
+            "body": "Inference software demand expands as enterprises deploy AI agents across workflows.",
+        }
+    )
+
+    assert score > 0
 
 
 def rss_adapter_with_items(items: list[dict]):

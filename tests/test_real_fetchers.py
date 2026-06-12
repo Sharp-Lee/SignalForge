@@ -4,7 +4,8 @@ from news_contracts.storage import ContractStore
 from source_ingestion.adapters.rss import RssAtomAdapter
 from source_ingestion.core import FetchResult, FixtureFetcher
 from source_ingestion.fetchers.last30days import Last30DaysSubprocessFetcher
-from source_ingestion.fetchers.rss import RssHttpFetcher
+from source_ingestion.fetchers import rss as rss_fetcher
+from source_ingestion.fetchers.rss import RSS_BROWSER_USER_AGENT, RssHttpFetcher
 from source_ingestion.runner import run_once
 
 
@@ -65,6 +66,39 @@ def test_rss_http_fetcher_uses_injected_transport_and_parses_feed():
     assert calls == ["https://example.com/feed.xml"]
     assert [item["id"] for item in result.items] == ["old-guid", "new-guid"]
     assert result.next_cursor == "2026-06-09T08:00:00Z"
+
+
+def test_default_rss_http_get_uses_browser_user_agent(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return RSS_XML_OLDEST_FIRST
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["timeout"] = timeout
+        captured["user_agent"] = request.get_header("User-agent")
+        captured["accept"] = request.get_header("Accept")
+        return FakeResponse()
+
+    monkeypatch.setattr(rss_fetcher, "urlopen", fake_urlopen)
+
+    payload = rss_fetcher._default_http_get("https://example.com/feed.xml")
+
+    assert payload == RSS_XML_OLDEST_FIRST
+    assert captured == {
+        "url": "https://example.com/feed.xml",
+        "timeout": 20,
+        "user_agent": RSS_BROWSER_USER_AGENT,
+        "accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+    }
 
 
 def test_rss_http_fetcher_cursor_skips_already_seen_entries_oldest_first():

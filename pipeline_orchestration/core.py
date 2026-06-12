@@ -248,9 +248,50 @@ def _signal_score(signal: dict) -> int:
     score = 0
     if any(ch.isdigit() for ch in text):
         score += 3
-    if any(term in text for term in ("%", "week", "month", "capacity", "order", "lead time", "sold out")):
+    if any(
+        term in text
+        for term in (
+            "%",
+            "week",
+            "month",
+            "capacity",
+            "order",
+            "lead time",
+            "sold out",
+            "megawatt",
+            "gigawatt",
+        )
+    ):
         score += 3
-    if any(term in text for term in ("hbm", "memory", "optical", "module", "power", "pcb", "server", "ai cluster")):
+    if any(
+        term in text
+        for term in (
+            "hbm",
+            "memory",
+            "optical",
+            "module",
+            "power",
+            "pcb",
+            "server",
+            "ai cluster",
+            "data center",
+            "datacenter",
+            "grid",
+            "power grid",
+            "energy",
+            "electric",
+            "utility",
+            "solar",
+            "storage",
+            "battery",
+            "cooling",
+            "liquid cooling",
+            "inference",
+            "agent",
+            "enterprise ai",
+            "ai software",
+        )
+    ):
         score += 2
     if _is_generic(text):
         score -= 3
@@ -259,7 +300,27 @@ def _signal_score(signal: dict) -> int:
 
 def _is_generic(text: str) -> bool:
     generic_terms = ("ai", "compute", "robot", "semiconductor", "technology")
-    return any(term in text for term in generic_terms) and not any(ch.isdigit() for ch in text)
+    specific_terms = (
+        "agent",
+        "inference",
+        "enterprise ai",
+        "ai software",
+        "data center",
+        "datacenter",
+        "grid",
+        "utility",
+        "cooling",
+        "storage",
+        "battery",
+        "hbm",
+        "optical",
+        "power",
+    )
+    return (
+        any(term in text for term in generic_terms)
+        and not any(ch.isdigit() for ch in text)
+        and not any(term in text for term in specific_terms)
+    )
 
 
 def _parse_datetime(value: str | None) -> datetime | None:

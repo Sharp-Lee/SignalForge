@@ -21,6 +21,7 @@ class RssSourceConfig:
     url: str
     enabled: bool = True
     quality: str = "standard"
+    domain: str = "general"
 
 
 def load_rss_source_configs(path: str | Path | None = None) -> list[RssSourceConfig]:
@@ -42,6 +43,7 @@ def load_rss_source_configs(path: str | Path | None = None) -> list[RssSourceCon
                 url=_required_text(item, "url"),
                 enabled=bool(item.get("enabled", True)),
                 quality=str(item.get("quality") or "standard"),
+                domain=str(item.get("domain") or "general"),
             )
         )
     return configs
@@ -57,6 +59,7 @@ def _configs_from_url_list(value: str) -> list[RssSourceConfig]:
                 url=url,
                 enabled=True,
                 quality="configured",
+                domain="configured",
             )
         )
     return configs

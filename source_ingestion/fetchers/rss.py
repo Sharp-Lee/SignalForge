@@ -2,10 +2,17 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
 from source_ingestion.core import FetchResult
+
+
+RSS_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0 Safari/537.36"
+)
 
 
 class RssHttpFetcher:
@@ -23,7 +30,14 @@ class RssHttpFetcher:
 
 
 def _default_http_get(url: str) -> bytes:
-    with urlopen(url, timeout=20) as response:
+    request = Request(
+        url,
+        headers={
+            "User-Agent": RSS_BROWSER_USER_AGENT,
+            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+        },
+    )
+    with urlopen(request, timeout=20) as response:
         return response.read()
 
 
