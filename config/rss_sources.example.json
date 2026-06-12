@@ -31,8 +31,15 @@
     "id": "rss:theregister",
     "name": "The Register",
     "url": "https://www.theregister.com/headlines.atom",
-    "enabled": false,
+    "enabled": true,
     "quality": "broad"
+  },
+  {
+    "id": "rss:nvidia-blog",
+    "name": "NVIDIA Blog",
+    "url": "https://blogs.nvidia.com/feed/",
+    "enabled": true,
+    "quality": "vendor"
   },
   {
     "id": "rss:tomshardware",

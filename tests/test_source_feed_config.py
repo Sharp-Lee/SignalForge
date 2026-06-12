@@ -3,14 +3,20 @@ import json
 from source_ingestion.feed_config import build_rss_adapters, load_rss_source_configs
 
 
-def test_example_rss_source_config_keeps_narrow_sources_enabled():
+def test_example_rss_source_config_enables_curated_live_sources():
     configs = load_rss_source_configs()
     enabled = {config.id for config in configs if config.enabled}
 
-    assert enabled == {"rss:servethehome", "rss:eetimes", "rss:semiwiki", "rss:edn"}
+    assert enabled == {
+        "rss:servethehome",
+        "rss:eetimes",
+        "rss:semiwiki",
+        "rss:edn",
+        "rss:theregister",
+        "rss:nvidia-blog",
+    }
     assert "rss:tomshardware" not in enabled
     assert "rss:techpowerup" not in enabled
-    assert "rss:theregister" not in enabled
 
 
 def test_rss_source_config_builds_only_enabled_adapters(tmp_path):
