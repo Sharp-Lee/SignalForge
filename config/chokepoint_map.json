@@ -1,45 +1,634 @@
 {
   "schema_version": "0.1",
   "nodes": [
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300308.SZ", "name": "中际旭创"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300502.SZ", "name": "新易盛"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002463.SZ", "name": "沪电股份"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002851.SZ", "name": "麦格米特"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300394.SZ", "name": "天孚通信"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300570.SZ", "name": "太辰光"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300620.SZ", "name": "光库科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300548.SZ", "name": "长芯博创"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688498.SH", "name": "源杰科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688205.SH", "name": "德科立"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "600522.SH", "name": "中天科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "600487.SH", "name": "亨通光电"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002281.SZ", "name": "光迅科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "000988.SZ", "name": "华工科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002916.SZ", "name": "深南电路"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "603228.SH", "name": "景旺电子"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002384.SZ", "name": "东山精密"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "600183.SH", "name": "生益科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688183.SH", "name": "生益电子"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002436.SZ", "name": "兴森科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300476.SZ", "name": "胜宏科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002475.SZ", "name": "立讯精密"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "601138.SH", "name": "工业富联"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "000977.SZ", "name": "浪潮信息"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "603019.SH", "name": "中科曙光"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "000938.SZ", "name": "紫光股份"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688041.SH", "name": "海光信息"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688256.SH", "name": "寒武纪"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "603986.SH", "name": "兆易创新"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002371.SZ", "name": "北方华创"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688012.SH", "name": "中微公司"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688008.SH", "name": "澜起科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "002156.SZ", "name": "通富微电"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "600584.SH", "name": "长电科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688525.SH", "name": "佰维存储"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "000063.SZ", "name": "中兴通讯"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300604.SZ", "name": "长川科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688072.SH", "name": "拓荆科技"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688409.SH", "name": "富创精密"}]},
-    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "688981.SH", "name": "中芯国际"}]}
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002463.SZ",
+          "name": "沪电股份"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "300570.SZ",
+          "name": "太辰光"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "300620.SZ",
+          "name": "光库科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "300548.SZ",
+          "name": "长芯博创"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688205.SH",
+          "name": "德科立"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "600522.SH",
+          "name": "中天科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "600487.SH",
+          "name": "亨通光电"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002281.SZ",
+          "name": "光迅科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "000988.SZ",
+          "name": "华工科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002916.SZ",
+          "name": "深南电路"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "603228.SH",
+          "name": "景旺电子"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002384.SZ",
+          "name": "东山精密"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "600183.SH",
+          "name": "生益科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688183.SH",
+          "name": "生益电子"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002436.SZ",
+          "name": "兴森科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "300476.SZ",
+          "name": "胜宏科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002475.SZ",
+          "name": "立讯精密"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "601138.SH",
+          "name": "工业富联"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "000977.SZ",
+          "name": "浪潮信息"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "603019.SH",
+          "name": "中科曙光"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "000938.SZ",
+          "name": "紫光股份"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688041.SH",
+          "name": "海光信息"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688256.SH",
+          "name": "寒武纪"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "603986.SH",
+          "name": "兆易创新"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002371.SZ",
+          "name": "北方华创"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688012.SH",
+          "name": "中微公司"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688008.SH",
+          "name": "澜起科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "002156.SZ",
+          "name": "通富微电"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "600584.SH",
+          "name": "长电科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688525.SH",
+          "name": "佰维存储"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "000063.SZ",
+          "name": "中兴通讯"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "300604.SZ",
+          "name": "长川科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688072.SH",
+          "name": "拓荆科技"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688409.SH",
+          "name": "富创精密"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "seed",
+      "a_share": [
+        {
+          "code": "688981.SH",
+          "name": "中芯国际"
+        }
+      ]
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "服务器系统",
+        "网络互联"
+      ],
+      "node": "光模块",
+      "structure": "oligopoly",
+      "chokepoint_holder": "全球高端由中国厂商主导(中际旭创/新易盛 等占多数份额)",
+      "china_position": "dominant",
+      "elasticity": "high",
+      "triggers": [
+        "云厂capex",
+        "800G",
+        "1.6T",
+        "光模块涨价",
+        "英伟达光模块订单",
+        "CPO"
+      ],
+      "a_share": [
+        {
+          "code": "300308.SZ",
+          "name": "中际旭创",
+          "role": "全球光模块龙头",
+          "purity": "high",
+          "confidence": "high"
+        },
+        {
+          "code": "300502.SZ",
+          "name": "新易盛",
+          "role": "光模块",
+          "purity": "high",
+          "confidence": "high"
+        },
+        {
+          "code": "300394.SZ",
+          "name": "天孚通信",
+          "role": "光器件",
+          "purity": "high",
+          "confidence": "high"
+        }
+      ],
+      "caveats": [
+        "利润漏向上游光芯片(美日);留意 CPO 对可插拔光模块的长期替代"
+      ],
+      "evidence": [
+        "旭创占1.6T约50-60%(ip-fiber)",
+        "中国占top10的7席(photoncap)",
+        "1.6T单价$1200→$2000反转降价(thexpin)"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "服务器系统",
+        "网络互联",
+        "光芯片"
+      ],
+      "node": "光芯片",
+      "structure": "oligopoly",
+      "chokepoint_holder": "高端 EML/DFB 光芯片在美日(Coherent/Lumentum/住友等)",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "国产光芯片",
+        "EML",
+        "硅光",
+        "CW光源",
+        "光芯片导入"
+      ],
+      "a_share": [
+        {
+          "code": "688498.SH",
+          "name": "源杰科技",
+          "role": "国产光芯片",
+          "purity": "mid",
+          "confidence": "mid"
+        },
+        {
+          "code": "688313.SH",
+          "name": "仕佳光子",
+          "role": "光芯片+无源器件",
+          "purity": "mid",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "高端仍依赖海外;国产替代早中期"
+      ],
+      "evidence": [
+        "光模块利润漏向上游光芯片(photoncap)"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "服务器系统",
+        "散热"
+      ],
+      "node": "液冷",
+      "structure": "fragmented",
+      "chokepoint_holder": "格局分散无单一卡脖子;中国厂商成本/交付/本地化领先",
+      "china_position": "dominant",
+      "elasticity": "high",
+      "triggers": [
+        "液冷",
+        "液冷渗透",
+        "CDU",
+        "风冷转液冷",
+        "GB200液冷",
+        "浸没式",
+        "DLC"
+      ],
+      "a_share": [
+        {
+          "code": "002837.SZ",
+          "name": "英维克",
+          "role": "数据中心液冷龙头",
+          "purity": "high",
+          "confidence": "high"
+        },
+        {
+          "code": "301018.SZ",
+          "name": "申菱环境",
+          "role": "数据中心+工业温控",
+          "purity": "mid",
+          "confidence": "high"
+        }
+      ],
+      "caveats": [
+        "渗透率拐点的成长弹性,非寡头定价;格局较分散需看份额变化"
+      ],
+      "evidence": [
+        "液冷渗透14%→33%+(TrendForce)",
+        "GB200单柜120-132kW液冷(gminsights)",
+        "英维克2025营收60.7亿+32%/液冷+41%、入英伟达MGX(futunn/biggo)"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "服务器系统",
+        "网络互联",
+        "铜连接"
+      ],
+      "node": "高速铜连接",
+      "structure": "oligopoly",
+      "chokepoint_holder": "连接器成品 Amphenol/Molex 主导;中国供线材/组件",
+      "china_position": "substitute",
+      "elasticity": "mid",
+      "triggers": [
+        "GB200",
+        "NVL72",
+        "铜背板",
+        "224G",
+        "高速铜缆",
+        "NVLink铜连接"
+      ],
+      "a_share": [
+        {
+          "code": "002130.SZ",
+          "name": "沃尔核材",
+          "role": "高速线材(子公司乐庭智联)",
+          "purity": "mid",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "★带替代风险:800V HVDC减铜45%(电源铜);长期多柜scale-up转CPO全光。now故事非永续"
+      ],
+      "evidence": [
+        "GB200用铜背板单柜>3.2km铜缆(fibermall)",
+        "GB200铜连接市场2025约$6B(山证)",
+        "沃尔子公司乐庭智联Amphenol供应链、224G小批(futunn)"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "服务器系统",
+        "供电"
+      ],
+      "node": "服务器电源HVDC",
+      "structure": "oligopoly",
+      "chokepoint_holder": "全球 Vertiv/Eaton/Delta 主导;中国做服务器电源/HVDC配套",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "800V HVDC",
+        "服务器电源",
+        "单柜功率",
+        "Rubin",
+        "机柜供电",
+        "固态变压器"
+      ],
+      "a_share": [
+        {
+          "code": "300870.SZ",
+          "name": "欧陆通",
+          "role": "服务器电源",
+          "purity": "mid",
+          "confidence": "mid"
+        },
+        {
+          "code": "002364.SZ",
+          "name": "中恒电气",
+          "role": "数据中心直流电源HVDC",
+          "purity": "mid",
+          "confidence": "mid"
+        },
+        {
+          "code": "002851.SZ",
+          "name": "麦格米特",
+          "role": "电源平台",
+          "purity": "mid",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "800V HVDC量产在2027(Rubin),爬坡期;中国厂商配套地位待确认"
+      ],
+      "evidence": [
+        "单柜功率40→120→2027 600kW-1MW(NVIDIA blog)",
+        "800V HVDC 2027量产、Vertiv H2 2026(DCD)"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "服务器系统",
+        "网络互联",
+        "交换芯片"
+      ],
+      "node": "交换芯片",
+      "structure": "monopoly",
+      "chokepoint_holder": "博通 Tomahawk/Jericho 占高端约75%;博通+Marvell全球约99%",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "国产交换芯片",
+        "以太网交换芯片",
+        "博通替代",
+        "CTC8180"
+      ],
+      "a_share": [
+        {
+          "code": "688702.SH",
+          "name": "盛科通信",
+          "role": "A股唯一商用交换芯片",
+          "purity": "low",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "★卡脖子极硬但国内份额仅约1.6%、替代极早期:高赔率高不确定,期权仓"
+      ],
+      "evidence": [
+        "博通高端约75%、博通+Marvell约99%(websearch)",
+        "盛科国内份额约1.6%、CTC8180 2.4T(sdxcentral)"
+      ],
+      "screen_pass": true
+    }
   ]
 }

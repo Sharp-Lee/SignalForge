@@ -167,22 +167,41 @@ def test_seed_node_must_not_claim_screen_pass_true():
         Draft202012Validator(CHOKEPOINT_MAP_SCHEMA).validate(malformed)
 
 
-def test_universe_codes_match_old_allowlist_exactly():
-    assert universe_codes() == OLD_A_SHARE_ALLOWLIST
-    assert set(universe_codes()) == set(OLD_A_SHARE_ALLOWLIST)
-    assert DEFAULT_A_SHARE_ALLOWLIST == OLD_A_SHARE_ALLOWLIST
+NEW_CURATED_CODES = {
+    "688313.SH",  # 仕佳光子 (光芯片)
+    "002837.SZ",  # 英维克 (液冷)
+    "301018.SZ",  # 申菱环境 (液冷)
+    "002130.SZ",  # 沃尔核材 (高速铜连接)
+    "300870.SZ",  # 欧陆通 (服务器电源HVDC)
+    "002364.SZ",  # 中恒电气 (服务器电源HVDC)
+    "688702.SH",  # 盛科通信 (交换芯片)
+}
 
 
-def test_loader_interfaces_return_initial_seed_shapes():
+def test_universe_includes_all_original_codes_plus_curated_additions():
+    codes = universe_codes()
+    # seed -> curated migration must not drop any of the original 40
+    assert set(OLD_A_SHARE_ALLOWLIST) <= set(codes)
+    # batch-1 curated chokepoint additions are now included
+    assert NEW_CURATED_CODES <= set(codes)
+    assert len(codes) == 47
+    assert len(codes) == len(set(codes))  # no double-count across seed/curated
+    assert DEFAULT_A_SHARE_ALLOWLIST == codes
+
+
+def test_loader_interfaces_after_batch1_curation():
     loaded = load_map()
     names = symbol_names()
 
     assert loaded["schema_version"] == "0.1"
-    assert len(loaded["nodes"]) == 40
+    assert len(loaded["nodes"]) == 41  # 35 seed + 6 curated (batch-1 server systems)
     assert names["300308.SZ"] == "中际旭创"
-    assert all(names.values())  # seed names tushare-stamped; no empty placeholder remains
-    assert len(names) == 40
-    assert trigger_index() == {}
+    assert all(names.values())  # every code carries a tushare-stamped name
+    assert len(names) == 47
+    # trigger_index is now populated by curated nodes (powers the daily scan)
+    ti = trigger_index()
+    assert set(ti) == {"光模块", "光芯片", "液冷", "高速铜连接", "服务器电源HVDC", "交换芯片"}
+    assert "1.6T" in ti["光模块"]
 
 
 def test_universe_codes_preserve_order_and_dedupe_first_occurrence(tmp_path):
