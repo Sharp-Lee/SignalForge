@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from investment_reasoning import INVESTMENT_REASONING_AUDIT_SCHEMA
+
+
+INVESTMENT_REASONING_SCHEMA = INVESTMENT_REASONING_AUDIT_SCHEMA
+
 
 CLAIM = {
     "type": "object",

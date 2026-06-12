@@ -37,6 +37,13 @@ logic_score.score MUST be an integer on a 0-100 scale, never a 1-10 score:
 Do not output company names. The system will stamp candidate names from the authoritative symbol universe."""
 
 
+REASONING_SYSTEM = """You are investment-reasoning-auditor for SignalForge.
+Before any thesis is written, audit whether the provided signals contain a real investment logic worth analyzing.
+Classify the primary logic type, validate the premise upward, decompose downstream bottlenecks, and decide whether target search is allowed.
+Reject generic commentary, common benefits, and unsupported narratives. Weak or rejected logic must not proceed to target search.
+All human-readable prose, descriptions, notes, rationales, counterarguments, hedge variables, catalysts, and exit triggers MUST be written in Simplified Chinese (简体中文). 枚举字段值必须保持英文 token, 绝不翻译: direction(bullish/bearish/neutral/mixed), confidence(low/medium/high), buy_point.status(favorable/neutral/unfavorable)."""
+
+
 TRIAGE_SYSTEM = """You are SignalForge's cluster triage reviewer.
 Select only signal clusters with real tradeable value for an AI ecosystem -> A-share personal alpha research workflow.
 Prefer signals that may transmit through supply/demand, price, orders, capacity, capex, regulation, power/energy/grid, data centers, cooling, optical modules, power electronics, storage, semiconductors, hardware, or AI software adoption.
@@ -46,6 +53,22 @@ Only use cluster_id values from the supplied candidate list. Never invent cluste
 
 
 def render_reasoner_user(role: str, context: dict) -> str:
+    if role == "investment_reasoning":
+        return _json_prompt(
+            "Audit investment reasoning before free-form thesis generation.",
+            {
+                "PROVIDED_SIGNAL_IDS": context.get("source_signal_ids", []),
+                "signals": context.get("signals", []),
+                "rules": [
+                    LANGUAGE_RULE,
+                    "Use only ids from PROVIDED_SIGNAL_IDS in source_signal_ids and upward_validation.evidence.",
+                    "primary_logic_type and secondary_logic_types must use canonical enum tokens from the schema.",
+                    "Set evidence_status accepted only when upward validation and downstream decomposition are strong enough.",
+                    "If evidence_status is weak or rejected, target_search_decision.status must not be allowed.",
+                    "Keep public_caveat framed as personal research notes; do not use recommendation language.",
+                ],
+            },
+        )
     if role == "free_generation":
         return _json_prompt(
             "Create a free-form thesis fragment from these signals.",

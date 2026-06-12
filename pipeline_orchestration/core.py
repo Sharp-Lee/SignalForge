@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 import json
 
-from analysis_orchestration import analyze
+from analysis_orchestration import AnalysisSkipped, analyze
 from signal_clustering import DefaultSignalClusterer
 from source_ingestion.runner import run_once
 from target_generation import propose_targets
@@ -127,6 +127,11 @@ def analyze_pending(
         triage_reason = result.triage_reasons.get(cluster.id)
         try:
             analysis = analyze(cluster.signals, author_reasoner, reviewer_reasoner, store)
+        except AnalysisSkipped as exc:
+            result.errors.append(PipelineError(stage="analysis-skip", unit=cluster.id, message=str(exc)))
+            state = _analysis_skip_state(exc.evidence_status)
+            _mark_signals_terminal(store, cluster.signals, state, triage_reason=triage_reason)
+            continue
         except Exception as exc:
             result.errors.append(PipelineError(stage="analysis", unit=cluster.id, message=str(exc)))
             _record_analysis_failure(store, cluster.signals, max_attempts, triage_reason=triage_reason)
@@ -177,12 +182,19 @@ def signal_analysis_counts(store) -> dict[str, int]:
         where a.signal_id is null or a.state = 'pending'
         """
     ).fetchone()["count"]
-    counts = {"pending": pending_count, "analyzed": 0, "skipped_stale": 0, "skipped_failed": 0}
+    counts = {
+        "pending": pending_count,
+        "analyzed": 0,
+        "skipped_stale": 0,
+        "skipped_failed": 0,
+        "skipped_weak_logic": 0,
+        "skipped_rejected_logic": 0,
+    }
     rows = store.connection.execute(
         """
         select state, count(*) as count
         from signal_analysis_state
-        where state in ('analyzed', 'skipped_stale', 'skipped_failed')
+        where state in ('analyzed', 'skipped_stale', 'skipped_failed', 'skipped_weak_logic', 'skipped_rejected_logic')
         group by state
         """
     ).fetchall()
@@ -278,6 +290,12 @@ def _mark_signals_terminal(
                 """,
                 (signal["id"], state, signal["id"], timestamp, triage_reason),
             )
+
+
+def _analysis_skip_state(evidence_status: str) -> str:
+    if evidence_status == "weak":
+        return "skipped_weak_logic"
+    return "skipped_rejected_logic"
 
 
 def _select_clusters_for_analysis(

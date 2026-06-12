@@ -3,6 +3,7 @@
 from .core import (
     AnalysisOrchestrationError,
     AnalysisResult,
+    AnalysisSkipped,
     LlmReasoner,
     Reasoner,
     ReasonerIdentity,
@@ -13,6 +14,7 @@ from .core import (
 __all__ = [
     "AnalysisOrchestrationError",
     "AnalysisResult",
+    "AnalysisSkipped",
     "LlmReasoner",
     "Reasoner",
     "ReasonerIdentity",

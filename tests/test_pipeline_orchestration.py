@@ -93,6 +93,31 @@ class StaticClusterer:
         ]
 
 
+def investment_reasoning_response(source_ids: list[str]) -> dict:
+    return {
+        "source_signal_ids": source_ids,
+        "primary_logic_type": "supply_demand",
+        "secondary_logic_types": [],
+        "evidence_status": "accepted",
+        "premise": "Selected signals contain measurable AI ecosystem investment logic.",
+        "upward_validation": [
+            {
+                "question": "Is there a concrete source-backed delta?",
+                "answer": "The selected signal includes a measurable demand, capacity, or infrastructure change.",
+                "evidence": source_ids[:1],
+                "status": "supported",
+            }
+        ],
+        "transmission_chain": ["signal delta -> constrained AI ecosystem layer -> supplier watchlist relevance"],
+        "downstream_decomposition": ["Separate upstream demand, bottleneck node, suppliers, and disconfirming signals."],
+        "chokepoint_candidates": [{"node": "AI ecosystem bottleneck", "reason": "The signal identifies constrained supply or demand."}],
+        "target_search_decision": {"status": "allowed", "reason": "Evidence and downstream decomposition are sufficient."},
+        "missing_evidence": ["Supplier-level confirmation"],
+        "disconfirming_evidence": ["Demand normalizes"],
+        "public_caveat": "这是一条研究观察逻辑，仍需跟踪后续证据。",
+    }
+
+
 class ContextAwareReasoner:
     def __init__(self, identity: ReasonerIdentity, fail_on: set[str] | None = None):
         self.identity = identity
@@ -104,6 +129,8 @@ class ContextAwareReasoner:
         source_ids = list(context.get("source_signal_ids") or [])
         if role == "free_generation" and set(source_ids) & self.fail_on:
             raise ValueError("forced analysis failure")
+        if role == "investment_reasoning":
+            return investment_reasoning_response(source_ids)
         if role == "free_generation":
             return {
                 "body": f"Cluster thesis for {','.join(source_ids)}.",
@@ -170,6 +197,7 @@ def author_reasoner(**free_overrides):
     return StubReasoner(
         ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"),
         {
+            "investment_reasoning": investment_reasoning_response(["sig-ai-server-1"]),
             "free_generation": free_generation,
             "completeness_critique": {
                 "notes": ["Check whether ODMs, power modules, or thermal suppliers capture the bottleneck first."],
@@ -272,6 +300,7 @@ def test_pipeline_records_analysis_failure_without_crashing(tmp_path):
     bad_author = StubReasoner(
         ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"),
         {
+            "investment_reasoning": investment_reasoning_response(["sig-ai-server-1"]),
             "free_generation": {
                 "body": "AI server supply pressure could benefit qualified suppliers.",
                 "source_signal_ids": ["sig-ai-server-1"],

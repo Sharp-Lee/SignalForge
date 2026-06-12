@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from investment_reasoning import InvestmentReasoningError, validate_investment_reasoning_audit
 from news_contracts.schemas import load_contract_schema
 
 from .schemas import (
@@ -9,9 +10,17 @@ from .schemas import (
     CLUSTER_TRIAGE_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
+    INVESTMENT_REASONING_SCHEMA,
     TARGET_PROPOSAL_SCHEMA,
 )
 from .transport import LlmProviderError
+
+
+def enforce_investment_reasoning_output(output: dict, allowed_signal_ids: set[str]) -> dict:
+    try:
+        return validate_investment_reasoning_audit(output, allowed_signal_ids=allowed_signal_ids)
+    except InvestmentReasoningError as exc:
+        raise LlmProviderError(str(exc)) from exc
 
 
 def enforce_free_generation_output(output: dict, allowed_signal_ids: set[str]) -> dict:
@@ -114,6 +123,7 @@ def schema_allowed_fields() -> dict[str, set[str]]:
         "adversarial_falsification": set(ADVERSARIAL_SCHEMA["properties"]) - {"reviewer", "review_run_id", "strongest_counterargument", "hedge_variables"},
         "target_proposal": set(TARGET_PROPOSAL_SCHEMA["properties"]["candidates"]["items"]["properties"]) - (target_fields | {"eligible"}),
         "cluster_triage": set(CLUSTER_TRIAGE_SCHEMA["properties"]) - {"selected"},
+        "investment_reasoning": set(),
     }
 
 

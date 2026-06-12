@@ -11,6 +11,7 @@ from llm_provider import (
     CLUSTER_TRIAGE_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
+    INVESTMENT_REASONING_SCHEMA,
     LlmClusterTriageSelector,
     OpenAICompatibleCompletion,
     TARGET_PROPOSAL_SCHEMA,
@@ -19,6 +20,7 @@ from llm_provider import (
     enforce_cluster_triage_output,
     enforce_adversarial_output,
     enforce_free_generation_output,
+    enforce_investment_reasoning_output,
     enforce_target_candidates,
     schema_allowed_fields,
 )
@@ -91,6 +93,42 @@ def free_generation_response():
     }
 
 
+def investment_reasoning_response(**overrides):
+    audit = {
+        "source_signal_ids": ["sig-ai-server-1"],
+        "primary_logic_type": "supply_demand",
+        "secondary_logic_types": ["margin_spread_repricing"],
+        "evidence_status": "accepted",
+        "premise": "AI server backlog and power-module lead times may indicate a supply-demand bottleneck.",
+        "upward_validation": [
+            {
+                "question": "Is the signal grounded in a measurable delta?",
+                "answer": "The source reports 25% backlog growth and lead-time extension.",
+                "evidence": ["sig-ai-server-1"],
+                "status": "supported",
+            }
+        ],
+        "transmission_chain": [
+            "AI server backlog -> power module lead-time extension -> qualified supplier order leverage"
+        ],
+        "downstream_decomposition": [
+            "Separate ODMs, power-module suppliers, thermal suppliers, and constrained components."
+        ],
+        "chokepoint_candidates": [
+            {"node": "服务器电源HVDC", "reason": "Power delivery can become a constrained AI server layer."}
+        ],
+        "target_search_decision": {
+            "status": "allowed",
+            "reason": "Evidence is accepted and downstream bottleneck candidates are identified.",
+        },
+        "missing_evidence": ["Supplier-level order conversion"],
+        "disconfirming_evidence": ["Lead times normalize", "AI server backlog reverses"],
+        "public_caveat": "这是一条供需观察逻辑，仍取决于订单转化和交期是否继续紧张。",
+    }
+    audit.update(overrides)
+    return audit
+
+
 def adversarial_response():
     return {
         "reviewer": "skeptic-reviewer",
@@ -134,6 +172,7 @@ def test_llm_reasoner_stub_transport_round_trips_through_analyze(tmp_path):
     store.add_signal(signal())
     author_transport = StubCompletion(
         {
+            "investment_reasoning_audit": investment_reasoning_response(),
             "free_generation": free_generation_response(),
             "completeness_critique": {
                 "notes": ["Check second-order thermal and power module suppliers."],
@@ -155,12 +194,46 @@ def test_llm_reasoner_stub_transport_round_trips_through_analyze(tmp_path):
     result = analyze([signal()], author, reviewer, store, thesis_id="thesis-ai-server-1")
 
     assert validate_thesis(result.thesis).accepted is True
+    assert result.investment_reasoning["primary_logic_type"] == "supply_demand"
+    assert result.thesis["investment_reasoning"]["target_search_decision"]["status"] == "allowed"
     assert result.thesis["completeness_critique"]["body_unchanged"] is True
     assert "sig-ai-server-1" in author_transport.calls[0]["user"]
-    assert "synthesis-author" in author_transport.calls[0]["system"]
+    assert "investment-reasoning-auditor" in author_transport.calls[0]["system"]
     assert author_transport.calls[0]["thinking"] == {"type": "adaptive"}
-    assert author_transport.calls[1]["thinking"] is None
+    assert author_transport.calls[0]["schema"] == INVESTMENT_REASONING_SCHEMA
+    assert author_transport.calls[1]["thinking"] == {"type": "adaptive"}
+    assert author_transport.calls[2]["thinking"] is None
     assert reviewer_transport.calls[0]["thinking"] == {"type": "adaptive"}
+
+
+def test_llm_reasoner_investment_reasoning_role_enforces_audit():
+    completion = StubCompletion({"investment_reasoning_audit": investment_reasoning_response()})
+    reasoner = LlmReasoner(ReasonerIdentity("author-agent-1", "synthesis-author"), transport=completion)
+
+    audit = reasoner.reason("investment_reasoning", {"signals": [signal()], "source_signal_ids": ["sig-ai-server-1"]})
+
+    assert audit["primary_logic_type"] == "supply_demand"
+    assert completion.calls[0]["schema"] == INVESTMENT_REASONING_SCHEMA
+    assert "primary_logic_type" in completion.calls[0]["user"]
+
+
+def test_investment_reasoning_output_rejects_hallucinated_source_id():
+    with pytest.raises(LlmProviderError, match="unknown source_signal_ids"):
+        enforce_investment_reasoning_output(
+            investment_reasoning_response(source_signal_ids=["sig-made-up"]),
+            {"sig-ai-server-1"},
+        )
+
+
+def test_investment_reasoning_output_rejects_invalid_target_gate():
+    with pytest.raises(LlmProviderError, match="cannot allow target search"):
+        enforce_investment_reasoning_output(
+            investment_reasoning_response(
+                evidence_status="weak",
+                target_search_decision={"status": "allowed", "reason": "try anyway"},
+            ),
+            {"sig-ai-server-1"},
+        )
 
 
 def test_llm_target_proposer_stub_transport_round_trips_through_target_generation(tmp_path):
@@ -401,6 +474,7 @@ def test_llm_reasoner_rejects_missing_free_generation_required_fields(tmp_path, 
         ReasonerIdentity("author-agent-1", "synthesis-author"),
         transport=StubCompletion(
             {
+                "investment_reasoning_audit": investment_reasoning_response(),
                 "free_generation": response,
                 "completeness_critique": {
                     "notes": ["Check second-order thermal and power module suppliers."],
@@ -432,6 +506,7 @@ def test_empty_thesis_source_ids_are_not_replaced_with_all_input_ids(tmp_path):
         ReasonerIdentity("author-agent-1", "synthesis-author"),
         transport=StubCompletion(
             {
+                "investment_reasoning_audit": investment_reasoning_response(),
                 "free_generation": response,
                 "completeness_critique": {
                     "notes": ["No source-backed thesis-level claim yet."],
@@ -633,11 +708,13 @@ def test_schema_drift_guard_extras_are_only_expected_orchestration_locals():
     assert extras["adversarial_falsification"] == set()
     assert extras["target_proposal"] == set()
     assert extras["cluster_triage"] == set()
+    assert extras["investment_reasoning"] == set()
 
 
 def test_output_schemas_use_additional_properties_false():
     assert FREE_GENERATION_SCHEMA["additionalProperties"] is False
     assert TARGET_PROPOSAL_SCHEMA["additionalProperties"] is False
+    assert INVESTMENT_REASONING_SCHEMA["additionalProperties"] is False
     assert TARGET_PROPOSAL_SCHEMA["properties"]["candidates"]["items"]["additionalProperties"] is False
     assert CLUSTER_TRIAGE_SCHEMA["additionalProperties"] is False
     assert CLUSTER_TRIAGE_SCHEMA["properties"]["selected"]["items"]["additionalProperties"] is False
@@ -652,6 +729,7 @@ def test_output_schemas_require_every_declared_property_recursively():
         ADVERSARIAL_SCHEMA,
         TARGET_PROPOSAL_SCHEMA,
         CLUSTER_TRIAGE_SCHEMA,
+        INVESTMENT_REASONING_SCHEMA,
     ):
         assert_all_object_properties_required(schema)
 

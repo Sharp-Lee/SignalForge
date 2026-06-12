@@ -4,6 +4,7 @@ import pytest
 
 from analysis_orchestration import (
     AnalysisOrchestrationError,
+    AnalysisSkipped,
     ReasonerIdentity,
     StubReasoner,
     analyze,
@@ -36,6 +37,42 @@ def realistic_signal(**overrides):
     return signal
 
 
+def investment_reasoning_response(**overrides):
+    audit = {
+        "source_signal_ids": ["sig-ai-server-1"],
+        "primary_logic_type": "supply_demand",
+        "secondary_logic_types": ["margin_spread_repricing"],
+        "evidence_status": "accepted",
+        "premise": "AI server power module lead-time extension may indicate a supply-demand bottleneck.",
+        "upward_validation": [
+            {
+                "question": "Is the signal grounded in a concrete operational delta?",
+                "answer": "The signal reports a 25% backlog expansion and lead-time extension.",
+                "evidence": ["sig-ai-server-1"],
+                "status": "supported",
+            }
+        ],
+        "transmission_chain": [
+            "AI server backlog -> power module lead-time extension -> qualified supplier order leverage"
+        ],
+        "downstream_decomposition": [
+            "Separate ODMs, power module suppliers, thermal suppliers, and component bottlenecks."
+        ],
+        "chokepoint_candidates": [
+            {"node": "服务器电源HVDC", "reason": "Power delivery can become a constrained AI server layer."}
+        ],
+        "target_search_decision": {
+            "status": "allowed",
+            "reason": "Evidence is accepted and downstream bottleneck candidates are identified.",
+        },
+        "missing_evidence": ["Supplier-level order conversion"],
+        "disconfirming_evidence": ["Lead times normalize", "AI server backlog reverses"],
+        "public_caveat": "这是一条供需观察逻辑，仍取决于订单转化和交期是否继续紧张。",
+    }
+    audit.update(overrides)
+    return audit
+
+
 def author_reasoner(**free_overrides):
     free_generation = {
         "body": "AI server power module shortages are likely to push urgent orders toward qualified Asian suppliers, creating a second-order A-share watch theme.",
@@ -64,6 +101,7 @@ def author_reasoner(**free_overrides):
     return StubReasoner(
         ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"),
         {
+            "investment_reasoning": investment_reasoning_response(),
             "free_generation": free_generation,
             "completeness_critique": {
                 "notes": ["Check whether ODMs, power modules, or thermal suppliers capture the bottleneck first."],
@@ -103,6 +141,8 @@ def test_analysis_orchestration_runs_three_steps_and_persists_confirmed_thesis(t
     )
 
     assert result.thesis_id == "thesis-ai-server-1"
+    assert result.investment_reasoning["primary_logic_type"] == "supply_demand"
+    assert result.thesis["investment_reasoning"]["evidence_status"] == "accepted"
     assert result.thesis["status"] == "confirmed"
     assert result.thesis["completeness_critique"]["body_unchanged"] is True
     assert result.thesis["adversarial_falsification"]["review_session"]["reviewer_instance_id"] == "reviewer-agent-1"
@@ -147,6 +187,7 @@ def test_analysis_orchestration_missing_completeness_critique_does_not_confirm(t
     author = StubReasoner(
         ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"),
         {
+            "investment_reasoning": investment_reasoning_response(),
             "free_generation": {
                 "body": "AI server supply pressure could benefit qualified suppliers.",
                 "source_signal_ids": ["sig-ai-server-1"],
@@ -158,6 +199,52 @@ def test_analysis_orchestration_missing_completeness_critique_does_not_confirm(t
     with pytest.raises(AnalysisOrchestrationError, match="completeness critique"):
         analyze([signal], author, reviewer_reasoner(), store)
 
+    assert store.connection.execute("select count(*) as count from theses").fetchone()["count"] == 0
+
+
+def test_analysis_orchestration_weak_reasoning_stops_before_free_generation(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+    signal = realistic_signal()
+    author = StubReasoner(
+        ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"),
+        {
+            "investment_reasoning": investment_reasoning_response(
+                evidence_status="weak",
+                target_search_decision={"status": "not_ready", "reason": "Only one signal and missing order conversion."},
+                missing_evidence=["Order conversion"],
+            ),
+            "free_generation": {"body": "should not be called"},
+        },
+    )
+
+    with pytest.raises(AnalysisSkipped) as exc_info:
+        analyze([signal], author, reviewer_reasoner(), store)
+
+    assert exc_info.value.evidence_status == "weak"
+    assert [call["role"] for call in author.calls] == ["investment_reasoning"]
+    assert store.connection.execute("select count(*) as count from theses").fetchone()["count"] == 0
+
+
+def test_analysis_orchestration_rejected_reasoning_stops_before_free_generation(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+    signal = realistic_signal()
+    author = StubReasoner(
+        ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"),
+        {
+            "investment_reasoning": investment_reasoning_response(
+                evidence_status="rejected",
+                target_search_decision={"status": "blocked", "reason": "Generic product commentary."},
+                missing_evidence=["No measurable delta"],
+            ),
+            "free_generation": {"body": "should not be called"},
+        },
+    )
+
+    with pytest.raises(AnalysisSkipped) as exc_info:
+        analyze([signal], author, reviewer_reasoner(), store)
+
+    assert exc_info.value.evidence_status == "rejected"
+    assert [call["role"] for call in author.calls] == ["investment_reasoning"]
     assert store.connection.execute("select count(*) as count from theses").fetchone()["count"] == 0
 
 

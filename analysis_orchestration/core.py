@@ -9,19 +9,30 @@ from llm_provider import (
     ADVERSARIAL_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
+    INVESTMENT_REASONING_SCHEMA,
     AnthropicCompletion,
     Completion,
     LlmProviderError,
     enforce_adversarial_output,
     enforce_completeness_output,
     enforce_free_generation_output,
+    enforce_investment_reasoning_output,
 )
-from llm_provider.prompts import AUTHOR_SYSTEM, CRITIQUE_SYSTEM, REVIEWER_SYSTEM, render_reasoner_user
+from llm_provider.prompts import AUTHOR_SYSTEM, CRITIQUE_SYSTEM, REASONING_SYSTEM, REVIEWER_SYSTEM, render_reasoner_user
 from news_contracts.interfaces import create_adversarial_review
 
 
 class AnalysisOrchestrationError(ValueError):
     """Raised when analysis orchestration cannot produce a valid thesis candidate."""
+
+
+class AnalysisSkipped(AnalysisOrchestrationError):
+    """Raised when investment reasoning marks a signal cluster non-actionable."""
+
+    def __init__(self, message: str, *, evidence_status: str, investment_reasoning: dict):
+        super().__init__(message)
+        self.evidence_status = evidence_status
+        self.investment_reasoning = investment_reasoning
 
 
 @dataclass(frozen=True)
@@ -41,6 +52,7 @@ class Reasoner(Protocol):
 class AnalysisResult:
     thesis_id: str
     thesis: dict
+    investment_reasoning: dict
 
 
 class StubReasoner:
@@ -72,7 +84,11 @@ class LlmReasoner:
         self.max_tokens = max_tokens
 
     def reason(self, role: str, context: dict[str, Any]) -> dict[str, Any]:
-        if role == "free_generation":
+        if role == "investment_reasoning":
+            schema = INVESTMENT_REASONING_SCHEMA
+            system = self.system_prompt or REASONING_SYSTEM
+            thinking = {"type": "adaptive"}
+        elif role == "free_generation":
             schema = FREE_GENERATION_SCHEMA
             system = self.system_prompt or AUTHOR_SYSTEM
             thinking = {"type": "adaptive"}
@@ -94,6 +110,8 @@ class LlmReasoner:
             max_tokens=self.max_tokens,
             thinking=thinking,
         )
+        if role == "investment_reasoning":
+            return enforce_investment_reasoning_output(output, set(context.get("source_signal_ids") or []))
         if role == "free_generation":
             return enforce_free_generation_output(output, set(context.get("source_signal_ids") or []))
         if role == "completeness_critique":
@@ -119,7 +137,13 @@ def analyze(
     source_signal_ids = [signal["id"] for signal in signals]
     base_context = {"signals": signals, "source_signal_ids": source_signal_ids}
 
-    free = author_reasoner.reason("free_generation", base_context)
+    investment_reasoning = author_reasoner.reason("investment_reasoning", base_context)
+    _ensure_actionable_reasoning(investment_reasoning)
+
+    free = author_reasoner.reason(
+        "free_generation",
+        {**base_context, "investment_reasoning": investment_reasoning},
+    )
     body = _required_text(free, "body", "free_generation")
 
     critique = author_reasoner.reason(
@@ -151,13 +175,14 @@ def analyze(
         "completeness_critique": critique_record,
         "adversarial_falsification": adversarial_record,
         "track_record": _build_track_record(free, direction, created, verification_days),
+        "investment_reasoning": investment_reasoning,
     }
     for optional_field in ("origin_market", "target_market", "transmission_path"):
         if free.get(optional_field) is not None:
             thesis[optional_field] = free[optional_field]
 
     stored_id = store.add_thesis(thesis)
-    return AnalysisResult(thesis_id=stored_id, thesis=thesis)
+    return AnalysisResult(thesis_id=stored_id, thesis=thesis, investment_reasoning=investment_reasoning)
 
 
 def _ensure_independent_reasoners(author: ReasonerIdentity, reviewer: ReasonerIdentity) -> None:
@@ -165,6 +190,19 @@ def _ensure_independent_reasoners(author: ReasonerIdentity, reviewer: ReasonerId
         raise AnalysisOrchestrationError("reviewer instance must differ from author instance")
     if reviewer.persona == author.persona:
         raise AnalysisOrchestrationError("reviewer persona must differ from author persona")
+
+
+def _ensure_actionable_reasoning(audit: dict) -> None:
+    evidence_status = audit.get("evidence_status")
+    target_status = (audit.get("target_search_decision") or {}).get("status")
+    if evidence_status == "accepted" and target_status == "allowed":
+        return
+    reason = (audit.get("target_search_decision") or {}).get("reason") or "investment reasoning gate blocked analysis"
+    raise AnalysisSkipped(
+        f"investment reasoning {evidence_status or 'unknown'}: {reason}",
+        evidence_status=evidence_status or "rejected",
+        investment_reasoning=audit,
+    )
 
 
 def _build_completeness_critique(response: dict[str, Any]) -> dict:

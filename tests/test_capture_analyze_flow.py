@@ -65,10 +65,38 @@ class StubTriageSelector:
         return list(self.selections)
 
 
+def investment_reasoning_response(source_ids: list[str], **overrides) -> dict:
+    audit = {
+        "source_signal_ids": source_ids,
+        "primary_logic_type": "supply_demand",
+        "secondary_logic_types": [],
+        "evidence_status": "accepted",
+        "premise": "Selected signals contain measurable AI ecosystem investment logic.",
+        "upward_validation": [
+            {
+                "question": "Is there a concrete source-backed delta?",
+                "answer": "The selected signal includes a measurable demand, capacity, or infrastructure change.",
+                "evidence": source_ids[:1],
+                "status": "supported",
+            }
+        ],
+        "transmission_chain": ["signal delta -> constrained AI ecosystem layer -> supplier watchlist relevance"],
+        "downstream_decomposition": ["Separate upstream demand, bottleneck node, suppliers, and disconfirming signals."],
+        "chokepoint_candidates": [{"node": "AI ecosystem bottleneck", "reason": "The signal identifies constrained supply or demand."}],
+        "target_search_decision": {"status": "allowed", "reason": "Evidence and downstream decomposition are sufficient."},
+        "missing_evidence": ["Supplier-level confirmation"],
+        "disconfirming_evidence": ["Demand normalizes"],
+        "public_caveat": "这是一条研究观察逻辑，仍需跟踪后续证据。",
+    }
+    audit.update(overrides)
+    return audit
+
+
 class ContextReasoner:
-    def __init__(self, identity: ReasonerIdentity, fail=False):
+    def __init__(self, identity: ReasonerIdentity, fail=False, evidence_status: str = "accepted"):
         self.identity = identity
         self.fail = fail
+        self.evidence_status = evidence_status
         self.calls: list[dict] = []
 
     def reason(self, role: str, context: dict) -> dict:
@@ -76,6 +104,17 @@ class ContextReasoner:
         source_ids = list(context.get("source_signal_ids") or [])
         if self.fail and role == "free_generation":
             raise ValueError("forced analysis failure")
+        if role == "investment_reasoning":
+            if self.evidence_status == "accepted":
+                return investment_reasoning_response(source_ids)
+            target_status = "not_ready" if self.evidence_status == "weak" else "blocked"
+            return investment_reasoning_response(
+                source_ids,
+                evidence_status=self.evidence_status,
+                target_search_decision={"status": target_status, "reason": "Insufficient investment logic."},
+                transmission_chain=[],
+                downstream_decomposition=[],
+            )
         if role == "free_generation":
             return {
                 "body": f"Cluster thesis for {','.join(source_ids)}.",
@@ -108,6 +147,13 @@ def author(fail=False):
     return ContextReasoner(ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"), fail=fail)
 
 
+def non_actionable_author(evidence_status: str):
+    return ContextReasoner(
+        ReasonerIdentity(instance_id="author-agent-1", persona="synthesis-author"),
+        evidence_status=evidence_status,
+    )
+
+
 def reviewer():
     return ContextReasoner(ReasonerIdentity(instance_id="reviewer-agent-1", persona="skeptic-reviewer"))
 
@@ -126,6 +172,25 @@ def candidate(symbol="300001.SZ"):
     }
 
 
+def expected_counts(
+    *,
+    pending: int = 0,
+    analyzed: int = 0,
+    skipped_stale: int = 0,
+    skipped_failed: int = 0,
+    skipped_weak_logic: int = 0,
+    skipped_rejected_logic: int = 0,
+) -> dict[str, int]:
+    return {
+        "pending": pending,
+        "analyzed": analyzed,
+        "skipped_stale": skipped_stale,
+        "skipped_failed": skipped_failed,
+        "skipped_weak_logic": skipped_weak_logic,
+        "skipped_rejected_logic": skipped_rejected_logic,
+    }
+
+
 def test_capture_sources_persists_without_analysis(tmp_path):
     store = ContractStore(tmp_path / "contracts.db")
 
@@ -136,7 +201,7 @@ def test_capture_sources_persists_without_analysis(tmp_path):
 
     assert result.by_source["rss:capture"].accepted == 1
     assert len(pending_signals(store)) == 1
-    assert signal_analysis_counts(store) == {"pending": 1, "analyzed": 0, "skipped_stale": 0, "skipped_failed": 0}
+    assert signal_analysis_counts(store) == expected_counts(pending=1)
     assert store.connection.execute("select count(*) as count from theses").fetchone()["count"] == 0
 
 
@@ -184,7 +249,7 @@ def test_analyze_pending_survives_reopen_and_enforces_top_k(tmp_path):
     assert result.pending_count == 4
     assert result.cluster_count == 4
     assert result.selected_cluster_count == 1
-    assert signal_analysis_counts(reopened) == {"pending": 3, "analyzed": 1, "skipped_stale": 0, "skipped_failed": 0}
+    assert signal_analysis_counts(reopened) == expected_counts(pending=3, analyzed=1)
 
     second = analyze_pending(
         reopened,
@@ -198,7 +263,7 @@ def test_analyze_pending_survives_reopen_and_enforces_top_k(tmp_path):
     )
 
     assert second.theses[0]["source_signal_ids"] == ["sig-3"]
-    assert signal_analysis_counts(reopened) == {"pending": 2, "analyzed": 2, "skipped_stale": 0, "skipped_failed": 0}
+    assert signal_analysis_counts(reopened) == expected_counts(pending=2, analyzed=2)
 
 
 def test_analyze_pending_uses_llm_triage_selection_and_persists_reason(tmp_path):
@@ -240,7 +305,7 @@ def test_analyze_pending_uses_llm_triage_selection_and_persists_reason(tmp_path)
     assert result.triage_candidate_count == 2
     assert result.triage_reasons == {"cluster-002": "电力瓶颈具备A股电网设备和储能传导价值。"}
     assert result.theses[0]["source_signal_ids"] == ["sig-power"]
-    assert signal_analysis_counts(store) == {"pending": 1, "analyzed": 1, "skipped_stale": 0, "skipped_failed": 0}
+    assert signal_analysis_counts(store) == expected_counts(pending=1, analyzed=1)
     row = store.connection.execute(
         "select triage_reason from signal_analysis_state where signal_id = ?",
         ("sig-power",),
@@ -356,7 +421,7 @@ def test_analyze_pending_marks_old_signals_skipped_stale(tmp_path):
 
     assert result.theses == []
     assert test_author.calls == []
-    assert signal_analysis_counts(store) == {"pending": 0, "analyzed": 0, "skipped_stale": 1, "skipped_failed": 0}
+    assert signal_analysis_counts(store) == expected_counts(skipped_stale=1)
 
 
 def test_analyze_pending_marks_repeated_failures_skipped_failed(tmp_path):
@@ -383,7 +448,7 @@ def test_analyze_pending_marks_repeated_failures_skipped_failed(tmp_path):
         now=datetime(2026, 6, 12, tzinfo=UTC),
     )
     assert len(first.errors) == 1
-    assert signal_analysis_counts(store) == {"pending": 1, "analyzed": 0, "skipped_stale": 0, "skipped_failed": 0}
+    assert signal_analysis_counts(store) == expected_counts(pending=1)
 
     second = analyze_pending(
         store,
@@ -396,7 +461,7 @@ def test_analyze_pending_marks_repeated_failures_skipped_failed(tmp_path):
         now=datetime(2026, 6, 12, tzinfo=UTC),
     )
     assert len(second.errors) == 1
-    assert signal_analysis_counts(store) == {"pending": 0, "analyzed": 0, "skipped_stale": 0, "skipped_failed": 1}
+    assert signal_analysis_counts(store) == expected_counts(skipped_failed=1)
 
     calls_after_cap = len(failing_author.calls)
     third = analyze_pending(
@@ -411,3 +476,40 @@ def test_analyze_pending_marks_repeated_failures_skipped_failed(tmp_path):
     )
     assert third.theses == []
     assert len(failing_author.calls) == calls_after_cap
+
+
+def test_analyze_pending_marks_weak_and_rejected_reasoning_terminal_without_retry(tmp_path):
+    for evidence_status, expected_state in [
+        ("weak", "skipped_weak_logic"),
+        ("rejected", "skipped_rejected_logic"),
+    ]:
+        store = ContractStore(tmp_path / f"{evidence_status}.db")
+        capture_sources(
+            store,
+            [
+                rss_adapter(
+                    f"rss:{evidence_status}",
+                    [raw_item(f"sig-{evidence_status}", "Generic AI commentary", "No measurable investment delta.")],
+                )
+            ],
+        )
+        test_author = non_actionable_author(evidence_status)
+
+        result = analyze_pending(
+            store,
+            author_reasoner=test_author,
+            reviewer_reasoner=reviewer(),
+            proposer=StubTargetProposer([candidate()]),
+            price_lookup=StubPriceLookup({"300001.SZ": 0.02}),
+            top_k=1,
+            max_attempts=1,
+            now=datetime(2026, 6, 12, tzinfo=UTC),
+        )
+
+        assert result.theses == []
+        assert result.targets == []
+        assert result.errors[0].stage == "analysis-skip"
+        assert expected_state in signal_analysis_counts(store)
+        assert signal_analysis_counts(store)[expected_state] == 1
+        assert signal_analysis_counts(store)["skipped_failed"] == 0
+        assert [call["role"] for call in test_author.calls] == ["investment_reasoning"]
