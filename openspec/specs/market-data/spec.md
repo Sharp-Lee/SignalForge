@@ -41,10 +41,10 @@ The real price lookup SHALL calculate `price_change_since_signal(symbol, thesis)
 
 ### Requirement: Provider-Stamped A-Share Universe
 
-The system SHALL build the target symbol universe from a reviewed domain code allowlist plus provider security-list names. Tushare `stock_basic` names MUST be preferred when available; AkShare code-name rows MAY fill gaps. Displayed company names MUST come from provider rows and MUST NOT be hand-written.
+The system SHALL build the target symbol universe from a reviewed domain code allowlist derived from the chokepoint map plus provider security-list names. Tushare `stock_basic` names MUST be preferred when available; AkShare code-name rows MAY fill gaps. Displayed runtime company names MUST come from provider rows and MUST NOT be hand-written or taken from chokepoint-map seed placeholders.
 
 #### Scenario: Tushare builds authoritative universe
-- **WHEN** Tushare returns code/name rows for the reviewed allowlist
+- **WHEN** Tushare returns code/name rows for the reviewed chokepoint-map-derived allowlist
 - **THEN** the universe maps allowed symbols to Tushare-stamped company names
 
 #### Scenario: AkShare code-name failure does not break Tushare universe
@@ -54,4 +54,8 @@ The system SHALL build the target symbol universe from a reviewed domain code al
 #### Scenario: Missing code is skipped with reason
 - **WHEN** a reviewed allowlist code is missing from every provider security list
 - **THEN** universe construction omits that code and records a reason instead of inventing a name
+
+#### Scenario: Chokepoint map does not replace provider name stamping
+- **WHEN** the chokepoint map contains empty seed name placeholders
+- **THEN** runtime universe construction still uses provider-stamped names and does not display those placeholders as authoritative company names
 

@@ -204,6 +204,18 @@ def test_build_universe_skips_missing_codes_with_reason():
     assert "002463.SZ: missing authoritative name" in universe.skipped_reasons
 
 
+def test_build_default_universe_uses_provider_names_not_chokepoint_placeholders():
+    from market_data import MarketDataProviderChain, build_default_universe
+
+    provider = FakeProvider(name="tushare", names={"300308.SZ": "中际旭创"})
+
+    universe = build_default_universe(MarketDataProviderChain([provider]))
+
+    assert universe.symbols["300308.SZ"] == "中际旭创"
+    assert "" not in universe.symbols.values()
+    assert "300502.SZ: missing authoritative name" in universe.skipped_reasons
+
+
 def test_tushare_provider_uses_injected_client_for_names_and_daily_bars():
     from market_data.providers import TushareProvider
 
