@@ -13,7 +13,7 @@ The system SHALL provide a capture path that runs configured source adapters and
 
 ### Requirement: Pending Signal State
 
-The system SHALL track whether an accepted signal is still pending analysis using one small analysis-state table. A signal is pending when it has no row or has a non-terminal `pending` row in `signal_analysis_state`. Terminal states MUST be `analyzed`, `skipped_stale`, and `skipped_failed`.
+The system SHALL track whether an accepted signal is still pending analysis using one small analysis-state table. A signal is pending when it has no row or has a non-terminal `pending` row in `signal_analysis_state`. Terminal states MUST include `analyzed`, `skipped_stale`, `skipped_failed`, `skipped_weak_logic`, and `skipped_rejected_logic`.
 
 #### Scenario: Newly captured signal is pending
 - **WHEN** capture persists a signal and no analysis-state row exists for it
@@ -21,6 +21,14 @@ The system SHALL track whether an accepted signal is still pending analysis usin
 
 #### Scenario: Analyzed signal is not pending
 - **WHEN** a signal is marked `analyzed`
+- **THEN** later analyze runs MUST NOT analyze it again
+
+#### Scenario: Weak logic signal is not retried
+- **WHEN** a signal is marked `skipped_weak_logic`
+- **THEN** later analyze runs MUST NOT analyze it again
+
+#### Scenario: Rejected logic signal is not retried
+- **WHEN** a signal is marked `skipped_rejected_logic`
 - **THEN** later analyze runs MUST NOT analyze it again
 
 ### Requirement: Pending Analysis Reads Store State
@@ -126,3 +134,15 @@ The analyze path SHALL persist the triage selection reason for signals in select
 - **WHEN** triage reasons are recorded
 - **THEN** thesis and target contract payloads are not modified to include triage-only fields
 
+### Requirement: Reasoning Skip Handling
+The analyze path SHALL treat weak or rejected investment reasoning as a processed terminal outcome, not a retryable analysis failure. It MUST record an analysis error or status message for observability, mark the selected cluster's signals as `skipped_weak_logic` or `skipped_rejected_logic`, and continue processing other selected clusters.
+
+#### Scenario: Weak logic is skipped without retry
+- **WHEN** analysis returns a weak reasoning skip for a selected cluster
+- **THEN** the cluster's signals are marked `skipped_weak_logic`
+- **AND** no thesis or targets are created for that cluster
+
+#### Scenario: Rejected logic is skipped without retry
+- **WHEN** analysis returns a rejected reasoning skip for a selected cluster
+- **THEN** the cluster's signals are marked `skipped_rejected_logic`
+- **AND** no thesis or targets are created for that cluster
