@@ -14,12 +14,14 @@ def test_system_prompts_require_simplified_chinese_prose_and_english_enums():
         prompts.CRITIQUE_SYSTEM,
         prompts.REVIEWER_SYSTEM,
         prompts.TARGET_SYSTEM,
+        prompts.TRIAGE_SYSTEM,
     ]:
         assert "简体中文" in system_prompt
-        assert "枚举" in system_prompt
-        assert "direction(bullish/bearish/neutral/mixed)" in system_prompt
-        assert "confidence(low/medium/high)" in system_prompt
-        assert "buy_point.status(favorable/neutral/unfavorable)" in system_prompt
+        if system_prompt is not prompts.TRIAGE_SYSTEM:
+            assert "枚举" in system_prompt
+            assert "direction(bullish/bearish/neutral/mixed)" in system_prompt
+            assert "confidence(low/medium/high)" in system_prompt
+            assert "buy_point.status(favorable/neutral/unfavorable)" in system_prompt
 
 
 def test_user_prompts_repeat_simplified_chinese_and_english_enum_rules():
@@ -34,6 +36,14 @@ def test_user_prompts_repeat_simplified_chinese_and_english_enum_rules():
             {"300308.SZ": "中际旭创"},
         )
     )
+    triage_payload = _input_payload(
+        prompts.render_cluster_triage_user(
+            clusters=[{"cluster_id": "cluster-001", "signals": []}],
+            top_k=1,
+            total_clusters=1,
+            candidate_limit=200,
+        )
+    )
 
     for payload in [*reasoner_payloads, target_payload]:
         rules = "\n".join(payload["rules"])
@@ -42,3 +52,5 @@ def test_user_prompts_repeat_simplified_chinese_and_english_enum_rules():
         assert "direction(bullish/bearish/neutral/mixed)" in rules
         assert "confidence(low/medium/high)" in rules
         assert "buy_point.status(favorable/neutral/unfavorable)" in rules
+    assert "Simplified Chinese" in "\n".join(triage_payload["rules"])
+    assert triage_payload["candidate_selection"] == "newest clusters by max source.published_at; no keyword prefilter"

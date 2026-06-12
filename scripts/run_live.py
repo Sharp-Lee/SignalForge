@@ -34,6 +34,7 @@ from llm_provider.transport import (  # noqa: E402
     LlmProviderError,
     OpenAICompatibleCompletion,
 )
+from llm_provider.triage import LlmClusterTriageSelector  # noqa: E402
 from news_contracts.storage import ContractStore  # noqa: E402
 from news_contracts.validation import validate_target, validate_thesis  # noqa: E402
 from pipeline_orchestration import analyze_pending, capture_sources, run_pipeline, signal_analysis_counts  # noqa: E402
@@ -170,9 +171,13 @@ def print_thesis(thesis: dict, heading: str = "FIRST REAL THESIS") -> None:
 
 def print_usage(label: str, transport) -> None:
     for u in getattr(transport, "usage", []) or []:
+        estimate = ""
+        if u.input_tokens is not None and u.output_tokens is not None and "deepseek" in str(u.model).lower():
+            estimated_usd = u.input_tokens / 1_000_000 * 0.27 + u.output_tokens / 1_000_000 * 1.10
+            estimate = f" est_usd_cache_miss_upper_bound={estimated_usd:.6f}"
         safe_print(
             f"  [{label}] model={u.model} role={u.role} "
-            f"in={u.input_tokens} out={u.output_tokens} {u.latency_ms}ms stop={u.stop_reason}"
+            f"in={u.input_tokens} out={u.output_tokens} {u.latency_ms}ms stop={u.stop_reason}{estimate}"
         )
 
 
@@ -293,6 +298,13 @@ def print_analysis_selection(result) -> None:
     safe_print(f"  pending_before : {getattr(result, 'pending_count', 0)}")
     safe_print(f"  clusters       : {getattr(result, 'cluster_count', 0)}")
     safe_print(f"  selected       : {getattr(result, 'selected_cluster_count', 0)}")
+    safe_print(f"  triage_mode    : {getattr(result, 'triage_mode', 'keyword')}")
+    safe_print(f"  triage_candidates: {getattr(result, 'triage_candidate_count', 0)}")
+    if getattr(result, "triage_error", None):
+        safe_print(f"  triage_error   : {result.triage_error}")
+    reasons = getattr(result, "triage_reasons", {}) or {}
+    for cluster_id, reason in reasons.items():
+        safe_print(f"  triage_reason[{cluster_id}]: {reason}")
 
 
 def _store_counts(store) -> dict[str, int]:
@@ -413,8 +425,10 @@ def _build_live_analysis_components(*, stub_market_data: bool = False):
     author_transport = build_transport("deepseek")
     reviewer_transport = build_transport("deepseek")
     proposer_transport = build_transport("deepseek")
+    triage_transport = build_transport("deepseek")
     author = LlmReasoner(ReasonerIdentity("author-live-1", "synthesis-author"), transport=author_transport)
     reviewer = LlmReasoner(ReasonerIdentity("reviewer-live-1", "skeptic-reviewer"), transport=reviewer_transport)
+    triage_selector = LlmClusterTriageSelector(transport=triage_transport)
 
     provider_chain = None
     universe_source = "fixture"
@@ -437,8 +451,10 @@ def _build_live_analysis_components(*, stub_market_data: bool = False):
         "author_transport": author_transport,
         "reviewer_transport": reviewer_transport,
         "proposer_transport": proposer_transport,
+        "triage_transport": triage_transport,
         "author": author,
         "reviewer": reviewer,
+        "triage_selector": triage_selector,
         "provider_chain": provider_chain,
         "universe_source": universe_source,
         "universe_skipped_reasons": universe_skipped_reasons,
@@ -480,7 +496,7 @@ def run_live_analyze(
     safe_print(f"→ store={'TEMP' if store_path is None else Path(store_path).expanduser()}")
     if components["universe_skipped_reasons"]:
         safe_print(f"→ universe_skipped_reasons={components['universe_skipped_reasons']}")
-    safe_print("→ calling analyze path (pending → clustering → top-K → analysis → target_generation)…\n")
+    safe_print("→ calling analyze path (pending → clustering → AI triage → analysis → target_generation)…\n")
 
     with open_pipeline_store(store_path) as (store, _resolved_store_path):
         price_lookup = (
@@ -498,6 +514,7 @@ def run_live_analyze(
             top_k=top_k,
             pending_max_age_days=pending_max_age_days,
             max_attempts=max_attempts,
+            triage_selector=components["triage_selector"],
         )
         print_store_counts(store)
         print_analysis_selection(result)
@@ -529,6 +546,7 @@ def run_live_analyze(
         safe_print("")
         safe_print("=" * 72)
         safe_print("usage:")
+        print_usage("triage", components["triage_transport"])
         print_usage("author", components["author_transport"])
         print_usage("reviewer", components["reviewer_transport"])
         print_usage("proposer", components["proposer_transport"])
@@ -556,7 +574,7 @@ def run_live_pipeline(
     safe_print(f"→ store={'TEMP' if store_path is None else Path(store_path).expanduser()}")
     if components["universe_skipped_reasons"]:
         safe_print(f"→ universe_skipped_reasons={components['universe_skipped_reasons']}")
-    safe_print("→ calling real pipeline (capture → pending analysis → target_generation)…\n")
+    safe_print("→ calling real pipeline (capture → pending AI triage analysis → target_generation)…\n")
 
     with open_pipeline_store(store_path) as (store, _resolved_store_path):
         price_lookup = (
@@ -575,6 +593,7 @@ def run_live_pipeline(
             top_k=top_k,
             pending_max_age_days=pending_max_age_days,
             max_attempts=max_attempts,
+            triage_selector=components["triage_selector"],
         )
         print_pipeline_ingestion(result)
         print_store_counts(store)
@@ -602,6 +621,7 @@ def run_live_pipeline(
         safe_print("")
         safe_print("=" * 72)
         safe_print("usage:")
+        print_usage("triage", components["triage_transport"])
         print_usage("author", components["author_transport"])
         print_usage("reviewer", components["reviewer_transport"])
         print_usage("proposer", components["proposer_transport"])

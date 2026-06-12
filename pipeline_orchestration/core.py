@@ -27,6 +27,19 @@ class PipelineResult:
     pending_count: int = 0
     cluster_count: int = 0
     selected_cluster_count: int = 0
+    triage_mode: str = "keyword"
+    triage_candidate_count: int = 0
+    triage_reasons: dict[str, str] = field(default_factory=dict)
+    triage_error: str | None = None
+
+
+@dataclass
+class _ClusterSelection:
+    clusters: list
+    mode: str
+    candidate_count: int
+    reasons: dict[str, str] = field(default_factory=dict)
+    error: str | None = None
 
 
 def run_pipeline(
@@ -42,6 +55,8 @@ def run_pipeline(
     top_k: int = 5,
     pending_max_age_days: int = 7,
     max_attempts: int = 2,
+    triage_selector=None,
+    triage_candidate_limit: int = 200,
 ) -> PipelineResult:
     ingestion = capture_sources(store, adapters)
     result = analyze_pending(
@@ -55,6 +70,8 @@ def run_pipeline(
         top_k=top_k,
         pending_max_age_days=pending_max_age_days,
         max_attempts=max_attempts,
+        triage_selector=triage_selector,
+        triage_candidate_limit=triage_candidate_limit,
     )
     result.ingestion = ingestion
     return result
@@ -76,6 +93,8 @@ def analyze_pending(
     top_k: int = 5,
     pending_max_age_days: int = 7,
     max_attempts: int = 2,
+    triage_selector=None,
+    triage_candidate_limit: int = 200,
     now: datetime | None = None,
 ) -> PipelineResult:
     _ensure_signal_analysis_state(store)
@@ -91,19 +110,30 @@ def analyze_pending(
     active_clusterer = clusterer or DefaultSignalClusterer()
     clusters = active_clusterer.cluster(pending)
     result.cluster_count = len(clusters)
-    selected_clusters = _select_top_clusters(clusters, top_k)
+    selection = _select_clusters_for_analysis(
+        clusters,
+        top_k=top_k,
+        triage_selector=triage_selector,
+        triage_candidate_limit=triage_candidate_limit,
+    )
+    selected_clusters = selection.clusters
     result.selected_cluster_count = len(selected_clusters)
+    result.triage_mode = selection.mode
+    result.triage_candidate_count = selection.candidate_count
+    result.triage_reasons = selection.reasons
+    result.triage_error = selection.error
 
     for cluster in selected_clusters:
+        triage_reason = result.triage_reasons.get(cluster.id)
         try:
             analysis = analyze(cluster.signals, author_reasoner, reviewer_reasoner, store)
         except Exception as exc:
             result.errors.append(PipelineError(stage="analysis", unit=cluster.id, message=str(exc)))
-            _record_analysis_failure(store, cluster.signals, max_attempts)
+            _record_analysis_failure(store, cluster.signals, max_attempts, triage_reason=triage_reason)
             continue
 
         result.theses.append(analysis.thesis)
-        _mark_signals_terminal(store, cluster.signals, "analyzed")
+        _mark_signals_terminal(store, cluster.signals, "analyzed", triage_reason=triage_reason)
 
         try:
             target_result = propose_targets(
@@ -174,6 +204,12 @@ def _ensure_signal_analysis_state(store) -> None:
             )
             """
         )
+        columns = {
+            row["name"]
+            for row in store.connection.execute("pragma table_info(signal_analysis_state)").fetchall()
+        }
+        if "triage_reason" not in columns:
+            store.connection.execute("alter table signal_analysis_state add column triage_reason text")
 
 
 def _mark_stale_pending(store, now: datetime, pending_max_age_days: int) -> None:
@@ -189,7 +225,12 @@ def _mark_stale_pending(store, now: datetime, pending_max_age_days: int) -> None
         _mark_signals_terminal(store, stale, "skipped_stale", now=now)
 
 
-def _record_analysis_failure(store, signals: list[dict], max_attempts: int) -> None:
+def _record_analysis_failure(
+    store,
+    signals: list[dict],
+    max_attempts: int,
+    triage_reason: str | None = None,
+) -> None:
     _ensure_signal_analysis_state(store)
     now = datetime.now(UTC)
     with store.connection:
@@ -203,32 +244,126 @@ def _record_analysis_failure(store, signals: list[dict], max_attempts: int) -> N
             state = "skipped_failed" if attempts >= max_attempts else "pending"
             store.connection.execute(
                 """
-                insert into signal_analysis_state (signal_id, state, attempts, updated_at)
-                values (?, ?, ?, ?)
+                insert into signal_analysis_state (signal_id, state, attempts, updated_at, triage_reason)
+                values (?, ?, ?, ?, ?)
                 on conflict(signal_id) do update set
                     state = excluded.state,
                     attempts = excluded.attempts,
-                    updated_at = excluded.updated_at
+                    updated_at = excluded.updated_at,
+                    triage_reason = coalesce(excluded.triage_reason, signal_analysis_state.triage_reason)
                 """,
-                (signal_id, state, attempts, _to_iso(now)),
+                (signal_id, state, attempts, _to_iso(now), triage_reason),
             )
 
 
-def _mark_signals_terminal(store, signals: list[dict], state: str, now: datetime | None = None) -> None:
+def _mark_signals_terminal(
+    store,
+    signals: list[dict],
+    state: str,
+    now: datetime | None = None,
+    triage_reason: str | None = None,
+) -> None:
     timestamp = _to_iso(now or datetime.now(UTC))
     with store.connection:
         for signal in signals:
             store.connection.execute(
                 """
-                insert into signal_analysis_state (signal_id, state, attempts, updated_at)
-                values (?, ?, coalesce((select attempts from signal_analysis_state where signal_id = ?), 0), ?)
+                insert into signal_analysis_state (signal_id, state, attempts, updated_at, triage_reason)
+                values (?, ?, coalesce((select attempts from signal_analysis_state where signal_id = ?), 0), ?, ?)
                 on conflict(signal_id) do update set
                     state = excluded.state,
                     attempts = excluded.attempts,
-                    updated_at = excluded.updated_at
+                    updated_at = excluded.updated_at,
+                    triage_reason = coalesce(excluded.triage_reason, signal_analysis_state.triage_reason)
                 """,
-                (signal["id"], state, signal["id"], timestamp),
+                (signal["id"], state, signal["id"], timestamp, triage_reason),
             )
+
+
+def _select_clusters_for_analysis(
+    clusters,
+    *,
+    top_k: int,
+    triage_selector=None,
+    triage_candidate_limit: int = 200,
+) -> _ClusterSelection:
+    if top_k <= 0:
+        return _ClusterSelection([], mode="keyword", candidate_count=0)
+    if triage_selector is None:
+        return _ClusterSelection(
+            _select_top_clusters(clusters, top_k),
+            mode="keyword",
+            candidate_count=0,
+        )
+    candidate_clusters = _freshest_clusters(clusters, triage_candidate_limit)
+    try:
+        selected = triage_selector.select(
+            candidate_clusters,
+            top_k,
+            total_clusters=len(clusters),
+            candidate_limit=triage_candidate_limit,
+        )
+    except Exception as exc:  # noqa: BLE001 - fallback is intentional selection safety.
+        return _ClusterSelection(
+            _select_top_clusters(clusters, top_k),
+            mode="fallback_keyword",
+            candidate_count=len(candidate_clusters),
+            error=str(exc),
+        )
+    if not selected:
+        return _ClusterSelection(
+            _select_top_clusters(clusters, top_k),
+            mode="fallback_keyword",
+            candidate_count=len(candidate_clusters),
+            error="empty triage selection",
+        )
+
+    by_id = {cluster.id: cluster for cluster in candidate_clusters}
+    chosen = []
+    reasons = {}
+    for item in selected:
+        cluster_id = item.cluster_id if hasattr(item, "cluster_id") else item.get("cluster_id")
+        reason = item.reason if hasattr(item, "reason") else item.get("reason")
+        cluster = by_id.get(cluster_id)
+        if cluster is None:
+            return _ClusterSelection(
+                _select_top_clusters(clusters, top_k),
+                mode="fallback_keyword",
+                candidate_count=len(candidate_clusters),
+                error=f"triage selected unknown cluster_id: {cluster_id}",
+            )
+        if not isinstance(reason, str) or not reason.strip():
+            return _ClusterSelection(
+                _select_top_clusters(clusters, top_k),
+                mode="fallback_keyword",
+                candidate_count=len(candidate_clusters),
+                error=f"triage selected {cluster_id} without reason",
+            )
+        if cluster_id not in reasons:
+            chosen.append(cluster)
+            reasons[cluster_id] = reason.strip()
+        if len(chosen) >= top_k:
+            break
+    if not chosen:
+        return _ClusterSelection(
+            _select_top_clusters(clusters, top_k),
+            mode="fallback_keyword",
+            candidate_count=len(candidate_clusters),
+            error="empty triage selection",
+        )
+    return _ClusterSelection(chosen, mode="llm_triage", candidate_count=len(candidate_clusters), reasons=reasons)
+
+
+def _freshest_clusters(clusters, limit: int):
+    if limit <= 0:
+        return []
+    return sorted(clusters, key=lambda cluster: (_cluster_newest_datetime(cluster), cluster.id), reverse=True)[:limit]
+
+
+def _cluster_newest_datetime(cluster) -> datetime:
+    values = [_parse_datetime((signal.get("source") or {}).get("published_at")) for signal in cluster.signals]
+    valid = [value for value in values if value is not None]
+    return max(valid) if valid else datetime.min.replace(tzinfo=UTC)
 
 
 def _select_top_clusters(clusters, top_k: int):

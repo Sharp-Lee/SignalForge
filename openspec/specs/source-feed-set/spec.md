@@ -5,7 +5,7 @@ TBD - created by archiving change decouple-capture-analyze. Update Purpose after
 ## Requirements
 ### Requirement: Configurable RSS Feed Set
 
-The system SHALL support a configurable RSS source list for live capture. Source configuration MUST include source id, source name, URL, enabled flag, and optional quality tier. Feed URLs MUST NOT be hard-coded as the only production source list.
+The system SHALL support a configurable RSS source list for live capture. Source configuration MUST include source id, source name, URL, enabled flag, optional quality tier, and optional ecosystem domain. Feed URLs MUST NOT be hard-coded as the only production source list.
 
 #### Scenario: Source config builds adapters
 - **WHEN** a source config file lists enabled RSS feeds
@@ -15,13 +15,9 @@ The system SHALL support a configurable RSS source list for live capture. Source
 - **WHEN** a configured source has `enabled = false`
 - **THEN** the capture path does not build or run an adapter for that source
 
-### Requirement: Narrow Default Source Template
-
-The committed example source list SHALL keep the first live set narrow: ServeTheHome, EE Times, SemiWiki, and EDN enabled. Broad high-volume feeds such as The Register, Tom's Hardware, and TechPowerUp MAY be present but MUST be disabled by default.
-
-#### Scenario: Narrow defaults avoid high-volume sources
-- **WHEN** the example source config is used without edits
-- **THEN** broad high-volume sources are not enabled by default
+#### Scenario: Source config preserves domain metadata
+- **WHEN** a source config entry includes an ecosystem domain
+- **THEN** the loaded source config preserves that domain for review and downstream operations
 
 ### Requirement: Source Verification Boundary
 
@@ -30,4 +26,15 @@ Candidate sources SHALL be verified with the same RSS fetcher/parser used by the
 #### Scenario: Dead source is not enabled by default
 - **WHEN** a candidate feed fails current fetcher verification
 - **THEN** it is not enabled in the committed default source template
+
+### Requirement: AI Ecosystem Default Source Coverage
+The committed example source list SHALL enable a verified AI ecosystem source set spanning hardware/semiconductor, power/energy/data-center infrastructure, and AI technology/software. Each enabled source MUST include domain metadata and quality tier metadata.
+
+#### Scenario: Default sources span AI ecosystem domains
+- **WHEN** the example source config is loaded
+- **THEN** enabled sources include at least one `hardware`, one `energy`, and one `ai_tech` source
+
+#### Scenario: Enabled sources include quality and domain
+- **WHEN** an example source is enabled
+- **THEN** it has both a quality tier and an ecosystem domain
 

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from analysis_orchestration import ReasonerIdentity, StubReasoner
+from llm_provider import TriageSelection
 from news_contracts.storage import ContractStore
 from pipeline_orchestration import (
     analyze_pending,
@@ -49,6 +50,19 @@ class StaticClusterer:
             for index, group in enumerate(self.groups)
             if all(signal_id in by_id for signal_id in group)
         ]
+
+
+class StubTriageSelector:
+    def __init__(self, selections=None, error: Exception | None = None):
+        self.selections = selections if selections is not None else []
+        self.error = error
+        self.calls = []
+
+    def select(self, clusters, top_k, **kwargs):
+        self.calls.append({"cluster_ids": [cluster.id for cluster in clusters], "top_k": top_k, "kwargs": kwargs})
+        if self.error is not None:
+            raise self.error
+        return list(self.selections)
 
 
 class ContextReasoner:
@@ -185,6 +199,135 @@ def test_analyze_pending_survives_reopen_and_enforces_top_k(tmp_path):
 
     assert second.theses[0]["source_signal_ids"] == ["sig-3"]
     assert signal_analysis_counts(reopened) == {"pending": 2, "analyzed": 2, "skipped_stale": 0, "skipped_failed": 0}
+
+
+def test_analyze_pending_uses_llm_triage_selection_and_persists_reason(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+    capture_sources(
+        store,
+        [
+            rss_adapter(
+                "rss:triage",
+                [
+                    raw_item("sig-low", "Minor software dashboard refresh", "Minor UI update.", "2026-06-12T08:00:00Z"),
+                    raw_item(
+                        "sig-power",
+                        "Data center power wall by 2030",
+                        "Report warns AI data center growth may run into a power wall by 2030.",
+                        "2026-06-12T09:00:00Z",
+                    ),
+                ],
+            )
+        ],
+    )
+    triage = StubTriageSelector(
+        [TriageSelection("cluster-002", "电力瓶颈具备A股电网设备和储能传导价值。")]
+    )
+
+    result = analyze_pending(
+        store,
+        author_reasoner=author(),
+        reviewer_reasoner=reviewer(),
+        proposer=StubTargetProposer([candidate()]),
+        price_lookup=StubPriceLookup({"300001.SZ": 0.02}),
+        clusterer=StaticClusterer([["sig-low"], ["sig-power"]]),
+        top_k=1,
+        triage_selector=triage,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert result.triage_mode == "llm_triage"
+    assert result.triage_candidate_count == 2
+    assert result.triage_reasons == {"cluster-002": "电力瓶颈具备A股电网设备和储能传导价值。"}
+    assert result.theses[0]["source_signal_ids"] == ["sig-power"]
+    assert signal_analysis_counts(store) == {"pending": 1, "analyzed": 1, "skipped_stale": 0, "skipped_failed": 0}
+    row = store.connection.execute(
+        "select triage_reason from signal_analysis_state where signal_id = ?",
+        ("sig-power",),
+    ).fetchone()
+    assert row["triage_reason"] == "电力瓶颈具备A股电网设备和储能传导价值。"
+
+
+def test_analyze_pending_triage_failure_empty_or_unknown_falls_back_to_keyword_top_k(tmp_path):
+    for triage_selector in [
+        StubTriageSelector(error=RuntimeError("triage unavailable")),
+        StubTriageSelector([]),
+        StubTriageSelector([{"cluster_id": "cluster-made-up", "reason": "bad"}]),
+    ]:
+        store = ContractStore(tmp_path / f"contracts-{len(triage_selector.calls)}-{id(triage_selector)}.db")
+        capture_sources(
+            store,
+            [
+                rss_adapter(
+                    "rss:fallback",
+                    [
+                        raw_item(
+                            "sig-keyword",
+                            "HBM capacity sold out for 2027",
+                            "HBM capacity sold out with 52 week lead time.",
+                            "2026-06-12T08:00:00Z",
+                        ),
+                        raw_item("sig-noise", "Minor app icon refresh", "A consumer app changed its icon.", "2026-06-12T09:00:00Z"),
+                    ],
+                )
+            ],
+        )
+
+        result = analyze_pending(
+            store,
+            author_reasoner=author(),
+            reviewer_reasoner=reviewer(),
+            proposer=StubTargetProposer([candidate()]),
+            price_lookup=StubPriceLookup({"300001.SZ": 0.02}),
+            clusterer=StaticClusterer([["sig-noise"], ["sig-keyword"]]),
+            top_k=1,
+            triage_selector=triage_selector,
+            now=datetime(2026, 6, 12, tzinfo=UTC),
+        )
+
+        assert result.triage_mode == "fallback_keyword"
+        assert result.theses[0]["source_signal_ids"] == ["sig-keyword"]
+        assert result.triage_error
+
+
+def test_analyze_pending_triage_candidate_limit_uses_newest_clusters(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+    capture_sources(
+        store,
+        [
+            rss_adapter(
+                "rss:freshness",
+                [
+                    raw_item(
+                        "sig-old",
+                        "HBM capacity sold out for 2027",
+                        "HBM capacity sold out with 52 week lead time.",
+                        "2026-06-10T08:00:00Z",
+                    ),
+                    raw_item("sig-middle", "AI agents enter enterprise workflows", "Enterprise AI agents are deployed.", "2026-06-11T08:00:00Z"),
+                    raw_item("sig-new", "Grid upgrade for AI data center", "Utility plans grid upgrade for AI data center load.", "2026-06-12T08:00:00Z"),
+                ],
+            )
+        ],
+    )
+    triage = StubTriageSelector([TriageSelection("cluster-003", "最新电网升级信号优先。")])
+
+    result = analyze_pending(
+        store,
+        author_reasoner=author(),
+        reviewer_reasoner=reviewer(),
+        proposer=StubTargetProposer([candidate()]),
+        price_lookup=StubPriceLookup({"300001.SZ": 0.02}),
+        clusterer=StaticClusterer([["sig-old"], ["sig-middle"], ["sig-new"]]),
+        top_k=1,
+        triage_selector=triage,
+        triage_candidate_limit=2,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert triage.calls[0]["cluster_ids"] == ["cluster-003", "cluster-002"]
+    assert triage.calls[0]["kwargs"] == {"total_clusters": 3, "candidate_limit": 2}
+    assert result.theses[0]["source_signal_ids"] == ["sig-new"]
 
 
 def test_analyze_pending_marks_old_signals_skipped_stale(tmp_path):

@@ -37,6 +37,14 @@ logic_score.score MUST be an integer on a 0-100 scale, never a 1-10 score:
 Do not output company names. The system will stamp candidate names from the authoritative symbol universe."""
 
 
+TRIAGE_SYSTEM = """You are SignalForge's cluster triage reviewer.
+Select only signal clusters with real tradeable value for an AI ecosystem -> A-share personal alpha research workflow.
+Prefer signals that may transmit through supply/demand, price, orders, capacity, capex, regulation, power/energy/grid, data centers, cooling, optical modules, power electronics, storage, semiconductors, hardware, or AI software adoption.
+Exclude generic commentary, market chatter, vendor marketing, pure product reviews, duplicate news, and broad technology opinion.
+Every reason MUST be written in Simplified Chinese (简体中文).
+Only use cluster_id values from the supplied candidate list. Never invent cluster ids."""
+
+
 def render_reasoner_user(role: str, context: dict) -> str:
     if role == "free_generation":
         return _json_prompt(
@@ -112,6 +120,31 @@ def render_target_user(thesis: dict, symbol_universe: dict[str, str] | None) -> 
                 "If symbol_universe is provided, use only those symbols.",
                 "logic_score.score must be a 0-100 integer; never use a 1-10 score.",
                 "Set eligible false when no target deserves watchlist inclusion.",
+            ],
+        },
+    )
+
+
+def render_cluster_triage_user(
+    *,
+    clusters: list[dict],
+    top_k: int,
+    total_clusters: int,
+    candidate_limit: int,
+) -> str:
+    return _json_prompt(
+        "Select pending signal clusters for deep analysis.",
+        {
+            "top_k": top_k,
+            "total_clusters": total_clusters,
+            "candidate_limit": candidate_limit,
+            "candidate_selection": "newest clusters by max source.published_at; no keyword prefilter",
+            "clusters": clusters,
+            "rules": [
+                "Return at most top_k selected clusters.",
+                "Every cluster_id must come from supplied clusters.",
+                "reason must be Simplified Chinese and explain tradeable AI ecosystem value.",
+                "Select only clusters with real A-share research value; otherwise return selected: [].",
             ],
         },
     )

@@ -157,3 +157,25 @@ TARGET_PROPOSAL_SCHEMA = {
         }
     },
 }
+
+
+CLUSTER_TRIAGE_SCHEMA = {
+    "title": "cluster_triage",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["selected"],
+    "properties": {
+        "selected": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["cluster_id", "reason"],
+                "properties": {
+                    "cluster_id": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+            },
+        }
+    },
+}

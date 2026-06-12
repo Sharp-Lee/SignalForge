@@ -8,17 +8,21 @@ import pytest
 from analysis_orchestration import LlmReasoner, ReasonerIdentity, analyze
 from llm_provider import (
     ADVERSARIAL_SCHEMA,
+    CLUSTER_TRIAGE_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
+    LlmClusterTriageSelector,
     OpenAICompatibleCompletion,
     TARGET_PROPOSAL_SCHEMA,
     AnthropicCompletion,
     LlmProviderError,
+    enforce_cluster_triage_output,
     enforce_adversarial_output,
     enforce_free_generation_output,
     enforce_target_candidates,
     schema_allowed_fields,
 )
+from signal_clustering import SignalCluster
 from news_contracts.storage import ContractStore
 from news_contracts.validation import validate_target, validate_thesis
 from target_generation import LlmTargetProposer, StubPriceLookup, propose_targets
@@ -339,6 +343,47 @@ def test_provider_rejects_hallucinated_source_ids():
         enforce_free_generation_output(bad, {"sig-ai-server-1"})
 
 
+def test_cluster_triage_selector_uses_prompt_schema_and_enforces_cluster_ids():
+    transport = StubCompletion(
+        {
+            "cluster_triage": {
+                "selected": [{"cluster_id": "cluster-002", "reason": "电力瓶颈具备A股传导价值。"}]
+            }
+        }
+    )
+    selector = LlmClusterTriageSelector(transport)
+    clusters = [
+        SignalCluster("cluster-001", [signal()], "singleton"),
+        SignalCluster("cluster-002", [{**signal(), "id": "sig-2", "title": "Data center power wall"}], "singleton"),
+    ]
+
+    selected = selector.select(clusters, top_k=1, total_clusters=2, candidate_limit=200)
+
+    assert [(item.cluster_id, item.reason) for item in selected] == [
+        ("cluster-002", "电力瓶颈具备A股传导价值。")
+    ]
+    assert transport.calls[0]["schema"] == CLUSTER_TRIAGE_SCHEMA
+    assert transport.calls[0]["thinking"] is None
+    assert "AI ecosystem" in transport.calls[0]["system"]
+    assert "简体中文" in transport.calls[0]["system"]
+    assert "cluster-002" in transport.calls[0]["user"]
+    assert "no keyword prefilter" in transport.calls[0]["user"]
+
+
+def test_cluster_triage_enforcement_rejects_unknown_cluster_and_empty_reason():
+    with pytest.raises(LlmProviderError, match="unknown cluster_id"):
+        enforce_cluster_triage_output(
+            {"selected": [{"cluster_id": "cluster-made-up", "reason": "看起来重要"}]},
+            {"cluster-001"},
+        )
+
+    with pytest.raises(LlmProviderError, match="reason"):
+        enforce_cluster_triage_output(
+            {"selected": [{"cluster_id": "cluster-001", "reason": "   "}]},
+            {"cluster-001"},
+        )
+
+
 @pytest.mark.parametrize(
     ("missing_field", "message"),
     [
@@ -587,18 +632,27 @@ def test_schema_drift_guard_extras_are_only_expected_orchestration_locals():
     assert extras["completeness_critique"] == set()
     assert extras["adversarial_falsification"] == set()
     assert extras["target_proposal"] == set()
+    assert extras["cluster_triage"] == set()
 
 
 def test_output_schemas_use_additional_properties_false():
     assert FREE_GENERATION_SCHEMA["additionalProperties"] is False
     assert TARGET_PROPOSAL_SCHEMA["additionalProperties"] is False
     assert TARGET_PROPOSAL_SCHEMA["properties"]["candidates"]["items"]["additionalProperties"] is False
+    assert CLUSTER_TRIAGE_SCHEMA["additionalProperties"] is False
+    assert CLUSTER_TRIAGE_SCHEMA["properties"]["selected"]["items"]["additionalProperties"] is False
     assert "name" not in TARGET_PROPOSAL_SCHEMA["properties"]["candidates"]["items"]["properties"]
     assert "name" not in TARGET_PROPOSAL_SCHEMA["properties"]["candidates"]["items"]["required"]
 
 
 def test_output_schemas_require_every_declared_property_recursively():
-    for schema in (FREE_GENERATION_SCHEMA, COMPLETENESS_SCHEMA, ADVERSARIAL_SCHEMA, TARGET_PROPOSAL_SCHEMA):
+    for schema in (
+        FREE_GENERATION_SCHEMA,
+        COMPLETENESS_SCHEMA,
+        ADVERSARIAL_SCHEMA,
+        TARGET_PROPOSAL_SCHEMA,
+        CLUSTER_TRIAGE_SCHEMA,
+    ):
         assert_all_object_properties_required(schema)
 
 

@@ -6,6 +6,7 @@ from news_contracts.schemas import load_contract_schema
 
 from .schemas import (
     ADVERSARIAL_SCHEMA,
+    CLUSTER_TRIAGE_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
     TARGET_PROPOSAL_SCHEMA,
@@ -84,6 +85,26 @@ def enforce_target_candidates(payload: dict, symbol_universe: dict[str, str] | N
     return candidates
 
 
+def enforce_cluster_triage_output(output: dict, allowed_cluster_ids: set[str]) -> list[dict]:
+    selected = output.get("selected")
+    if not isinstance(selected, list):
+        raise LlmProviderError("cluster triage requires selected array")
+    cleaned = []
+    seen = set()
+    for item in selected:
+        if not isinstance(item, dict):
+            raise LlmProviderError("cluster triage selected item must be an object")
+        cluster_id = item.get("cluster_id")
+        if cluster_id not in allowed_cluster_ids:
+            raise LlmProviderError(f"cluster triage selected unknown cluster_id: {cluster_id}")
+        _require_nonempty_text(item, "reason")
+        if cluster_id in seen:
+            continue
+        seen.add(cluster_id)
+        cleaned.append({"cluster_id": cluster_id, "reason": item["reason"].strip()})
+    return cleaned
+
+
 def schema_allowed_fields() -> dict[str, set[str]]:
     thesis_fields = set(load_contract_schema("thesis-contract")["properties"])
     target_fields = set(load_contract_schema("target-contract")["properties"])
@@ -92,6 +113,7 @@ def schema_allowed_fields() -> dict[str, set[str]]:
         "completeness_critique": set(COMPLETENESS_SCHEMA["properties"]) - {"notes", "candidate_thesis_ids", "body_unchanged"},
         "adversarial_falsification": set(ADVERSARIAL_SCHEMA["properties"]) - {"reviewer", "review_run_id", "strongest_counterargument", "hedge_variables"},
         "target_proposal": set(TARGET_PROPOSAL_SCHEMA["properties"]["candidates"]["items"]["properties"]) - (target_fields | {"eligible"}),
+        "cluster_triage": set(CLUSTER_TRIAGE_SCHEMA["properties"]) - {"selected"},
     }
 
 
