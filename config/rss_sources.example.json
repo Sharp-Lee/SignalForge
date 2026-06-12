@@ -42,6 +42,41 @@
     "quality": "vendor"
   },
   {
+    "id": "rss:marketwatch-top",
+    "name": "MarketWatch Top Stories",
+    "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+    "enabled": true,
+    "quality": "markets"
+  },
+  {
+    "id": "rss:ritholtz",
+    "name": "The Big Picture",
+    "url": "https://ritholtz.com/feed/",
+    "enabled": true,
+    "quality": "macro"
+  },
+  {
+    "id": "rss:awealthofcommonsense",
+    "name": "A Wealth of Common Sense",
+    "url": "https://awealthofcommonsense.com/feed/",
+    "enabled": true,
+    "quality": "investing"
+  },
+  {
+    "id": "rss:businessinsider-markets",
+    "name": "Business Insider Markets",
+    "url": "https://markets.businessinsider.com/rss/news",
+    "enabled": false,
+    "quality": "markets"
+  },
+  {
+    "id": "rss:wsj-markets",
+    "name": "WSJ Markets",
+    "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+    "enabled": false,
+    "quality": "markets-stale"
+  },
+  {
     "id": "rss:tomshardware",
     "name": "Tom's Hardware",
     "url": "https://www.tomshardware.com/feeds/all",

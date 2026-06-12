@@ -14,7 +14,12 @@ def test_example_rss_source_config_enables_curated_live_sources():
         "rss:edn",
         "rss:theregister",
         "rss:nvidia-blog",
+        "rss:marketwatch-top",
+        "rss:ritholtz",
+        "rss:awealthofcommonsense",
     }
+    assert "rss:businessinsider-markets" not in enabled
+    assert "rss:wsj-markets" not in enabled
     assert "rss:tomshardware" not in enabled
     assert "rss:techpowerup" not in enabled
 
