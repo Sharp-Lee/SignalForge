@@ -246,26 +246,6 @@
       "curation_status": "seed",
       "a_share": [
         {
-          "code": "002371.SZ",
-          "name": "北方华创"
-        }
-      ]
-    },
-    {
-      "domain": "AI生态",
-      "curation_status": "seed",
-      "a_share": [
-        {
-          "code": "688012.SH",
-          "name": "中微公司"
-        }
-      ]
-    },
-    {
-      "domain": "AI生态",
-      "curation_status": "seed",
-      "a_share": [
-        {
           "code": "688008.SH",
           "name": "澜起科技"
         }
@@ -318,16 +298,6 @@
         {
           "code": "300604.SZ",
           "name": "长川科技"
-        }
-      ]
-    },
-    {
-      "domain": "AI生态",
-      "curation_status": "seed",
-      "a_share": [
-        {
-          "code": "688072.SH",
-          "name": "拓荆科技"
         }
       ]
     },
@@ -627,6 +597,274 @@
       "evidence": [
         "博通高端约75%、博通+Marvell约99%(websearch)",
         "盛科国内份额约1.6%、CTC8180 2.4T(sdxcentral)"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "半导体制造",
+      "curation_status": "curated",
+      "branch": [
+        "晶圆制造",
+        "图形转移",
+        "刻蚀"
+      ],
+      "node": "刻蚀设备",
+      "structure": "oligopoly",
+      "chokepoint_holder": "Lam Research/Applied Materials/Tokyo Electron 主导高端刻蚀设备",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "刻蚀设备",
+        "国产刻蚀机",
+        "GAA刻蚀",
+        "高深宽比刻蚀",
+        "3D NAND刻蚀",
+        "先进制程扩产"
+      ],
+      "a_share": [
+        {
+          "code": "688012.SH",
+          "name": "中微公司",
+          "role": "刻蚀设备龙头",
+          "purity": "high",
+          "confidence": "high"
+        },
+        {
+          "code": "002371.SZ",
+          "name": "北方华创",
+          "role": "平台型半导体设备",
+          "purity": "mid",
+          "confidence": "high"
+        }
+      ],
+      "caveats": [
+        "中微刻蚀纯度较高;北方华创是平台型设备,不是单一刻蚀纯玩",
+        "先进制程客户验证节奏和出口管制都会影响放量"
+      ],
+      "evidence": [
+        "CSET: 中国在 dry etch/clean、deposition、CMP 等环节份额提升",
+        "中微公司官方: 刻蚀设备已被众多领先客户生产线采用",
+        "北方华创官方: 提供等离子刻蚀/PVD/CVD/ALD/炉管/清洗等设备"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "半导体制造",
+      "curation_status": "curated",
+      "branch": [
+        "晶圆制造",
+        "薄膜形成",
+        "沉积"
+      ],
+      "node": "薄膜沉积设备",
+      "structure": "oligopoly",
+      "chokepoint_holder": "Applied Materials/Tokyo Electron/ASM 等主导高端沉积设备",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "薄膜沉积",
+        "ALD",
+        "CVD",
+        "PVD",
+        "前驱体导入",
+        "先进制程扩产",
+        "HBM扩产"
+      ],
+      "a_share": [
+        {
+          "code": "002371.SZ",
+          "name": "北方华创",
+          "role": "PVD/CVD/ALD平台型设备",
+          "purity": "mid",
+          "confidence": "high"
+        },
+        {
+          "code": "688072.SH",
+          "name": "拓荆科技",
+          "role": "薄膜沉积设备",
+          "purity": "high",
+          "confidence": "high"
+        }
+      ],
+      "caveats": [
+        "沉积设备覆盖工艺广,不同制程/材料路线的客户验证差异大",
+        "北方华创平台属性较强,节点纯度低于拓荆科技"
+      ],
+      "evidence": [
+        "北方华创官方: 在 Logic/DRAM/3D NAND/3D IC 提供 PVD/CVD/ALD 等设备并进入主流芯片工厂",
+        "CSET: NAURA/Piotech/AMEC 推动中国 deposition 市占率提升"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "半导体制造",
+      "curation_status": "curated",
+      "branch": [
+        "晶圆制造",
+        "湿法工艺",
+        "清洗电镀"
+      ],
+      "node": "清洗电镀设备",
+      "structure": "oligopoly",
+      "chokepoint_holder": "SCREEN/TEL/Lam 等主导清洗设备,先进封装电镀工艺壁垒高",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "清洗设备",
+        "兆声波清洗",
+        "电镀设备",
+        "先进封装湿法",
+        "晶圆清洗",
+        "TSV电镀"
+      ],
+      "a_share": [
+        {
+          "code": "688082.SH",
+          "name": "盛美上海",
+          "role": "清洗/电镀设备",
+          "purity": "high",
+          "confidence": "high"
+        },
+        {
+          "code": "002371.SZ",
+          "name": "北方华创",
+          "role": "湿法设备平台",
+          "purity": "mid",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "清洗设备价值量分散,需观察先进封装/高端制程带来的高端清洗和电镀需求",
+        "北方华创湿法只是平台产品线之一"
+      ],
+      "evidence": [
+        "盛美上海官方: 产品包括单晶圆及槽式湿法清洗、电镀、无应力抛光、PECVD等",
+        "北方华创官方: 湿法设备已应用于集成电路、先进封装、化合物等领域"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "半导体制造",
+      "curation_status": "curated",
+      "branch": [
+        "晶圆制造",
+        "平坦化",
+        "CMP设备"
+      ],
+      "node": "CMP设备",
+      "structure": "oligopoly",
+      "chokepoint_holder": "Applied Materials/Ebara 等国际厂商主导,国内12英寸CMP设备稀缺",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "CMP设备",
+        "抛光设备",
+        "减薄设备",
+        "晶圆再生",
+        "先进封装减薄",
+        "HBM扩产"
+      ],
+      "a_share": [
+        {
+          "code": "688120.SH",
+          "name": "华海清科",
+          "role": "CMP设备龙头",
+          "purity": "high",
+          "confidence": "high"
+        }
+      ],
+      "caveats": [
+        "客户认证和工艺覆盖决定放量速度;先进制程/HBM/先进封装会提高CMP步骤需求"
+      ],
+      "evidence": [
+        "清华机械系: 华海清科推出国内首台12英寸CMP设备并实现量产销售",
+        "CSET: Hwatsing 帮助中国 CMP 设备份额提升"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "半导体制造",
+      "curation_status": "curated",
+      "branch": [
+        "晶圆制造",
+        "平坦化",
+        "CMP材料"
+      ],
+      "node": "CMP抛光液",
+      "structure": "oligopoly",
+      "chokepoint_holder": "Cabot/Entegris/Fujimi 等国际材料商主导高端CMP耗材",
+      "china_position": "substitute",
+      "elasticity": "high",
+      "triggers": [
+        "CMP抛光液",
+        "抛光液国产替代",
+        "先进制程抛光次数",
+        "HBM扩产",
+        "3D NAND层数提升",
+        "抛光液导入"
+      ],
+      "a_share": [
+        {
+          "code": "688019.SH",
+          "name": "安集科技",
+          "role": "CMP抛光液",
+          "purity": "high",
+          "confidence": "high"
+        }
+      ],
+      "caveats": [
+        "高客户粘性既是壁垒也是验证周期约束;需跟踪先进制程和存储客户导入"
+      ],
+      "evidence": [
+        "安集科技官方: 自主创新高端半导体材料公司",
+        "公开研报: 安集科技产品包括CMP抛光液和光刻胶去除剂,用于集成电路制造和先进封装"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "半导体制造",
+      "curation_status": "curated",
+      "branch": [
+        "晶圆制造",
+        "材料",
+        "电子特气"
+      ],
+      "node": "电子特气",
+      "structure": "oligopoly",
+      "chokepoint_holder": "林德/液化空气/日本酸素等国际气体巨头主导高端电子特气",
+      "china_position": "substitute",
+      "elasticity": "mid",
+      "triggers": [
+        "电子特气",
+        "光刻气",
+        "六氟丁二烯",
+        "高纯气体",
+        "刻蚀气体",
+        "半导体气体导入"
+      ],
+      "a_share": [
+        {
+          "code": "688268.SH",
+          "name": "华特气体",
+          "role": "电子特种气体",
+          "purity": "mid",
+          "confidence": "high"
+        },
+        {
+          "code": "688106.SH",
+          "name": "金宏气体",
+          "role": "电子大宗气体+特气",
+          "purity": "low",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "气体业务容易混入工业气体和大宗气体,纯度低于CMP抛光液/设备;只在高端电子特气导入或供给紧张时触发",
+        "金宏气体作为低纯度观察,不得按纯电子特气标的处理"
+      ],
+      "evidence": [
+        "上交所公告: 电子特气用于清洗、刻蚀、成膜、掺杂,被称为半导体产业的血液",
+        "华特气体资料: 多个集成电路电子特气产品实现进口替代并进入国内外客户供应链"
       ],
       "screen_pass": true
     }

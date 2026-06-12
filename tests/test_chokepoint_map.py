@@ -167,7 +167,7 @@ def test_seed_node_must_not_claim_screen_pass_true():
         Draft202012Validator(CHOKEPOINT_MAP_SCHEMA).validate(malformed)
 
 
-NEW_CURATED_CODES = {
+BATCH1_NEW_CURATED_CODES = {
     "688313.SH",  # 仕佳光子 (光芯片)
     "002837.SZ",  # 英维克 (液冷)
     "301018.SZ",  # 申菱环境 (液冷)
@@ -178,30 +178,55 @@ NEW_CURATED_CODES = {
 }
 
 
+BATCH2_NEW_CURATED_CODES = {
+    "688082.SH",  # 盛美上海 (清洗/电镀设备)
+    "688120.SH",  # 华海清科 (CMP设备)
+    "688019.SH",  # 安集科技 (CMP抛光液)
+    "688268.SH",  # 华特气体 (电子特气)
+    "688106.SH",  # 金宏气体 (电子特气低纯度观察)
+}
+
+
 def test_universe_includes_all_original_codes_plus_curated_additions():
     codes = universe_codes()
     # seed -> curated migration must not drop any of the original 40
     assert set(OLD_A_SHARE_ALLOWLIST) <= set(codes)
-    # batch-1 curated chokepoint additions are now included
-    assert NEW_CURATED_CODES <= set(codes)
-    assert len(codes) == 47
+    # batch-1 and batch-2 curated chokepoint additions are now included
+    assert BATCH1_NEW_CURATED_CODES <= set(codes)
+    assert BATCH2_NEW_CURATED_CODES <= set(codes)
+    assert len(codes) == 52
     assert len(codes) == len(set(codes))  # no double-count across seed/curated
     assert DEFAULT_A_SHARE_ALLOWLIST == codes
 
 
-def test_loader_interfaces_after_batch1_curation():
+def test_loader_interfaces_after_batch2_curation():
     loaded = load_map()
     names = symbol_names()
 
     assert loaded["schema_version"] == "0.1"
-    assert len(loaded["nodes"]) == 41  # 35 seed + 6 curated (batch-1 server systems)
+    assert len(loaded["nodes"]) == 44  # 32 seed + 12 curated (batch-1 + batch-2)
     assert names["300308.SZ"] == "中际旭创"
     assert all(names.values())  # every code carries a tushare-stamped name
-    assert len(names) == 47
+    assert len(names) == 52
     # trigger_index is now populated by curated nodes (powers the daily scan)
     ti = trigger_index()
-    assert set(ti) == {"光模块", "光芯片", "液冷", "高速铜连接", "服务器电源HVDC", "交换芯片"}
+    assert set(ti) == {
+        "光模块",
+        "光芯片",
+        "液冷",
+        "高速铜连接",
+        "服务器电源HVDC",
+        "交换芯片",
+        "刻蚀设备",
+        "薄膜沉积设备",
+        "清洗电镀设备",
+        "CMP设备",
+        "CMP抛光液",
+        "电子特气",
+    }
     assert "1.6T" in ti["光模块"]
+    assert "GAA刻蚀" in ti["刻蚀设备"]
+    assert "HBM扩产" in ti["CMP抛光液"]
 
 
 def test_universe_codes_preserve_order_and_dedupe_first_occurrence(tmp_path):
