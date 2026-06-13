@@ -133,7 +133,16 @@ def analyze_pending(
     for cluster in selected_clusters:
         triage_reason = result.triage_reasons.get(cluster.id)
         try:
-            analysis = analyze(cluster.signals, author_reasoner, reviewer_reasoner, store)
+            analysis = analyze(
+                cluster.signals,
+                author_reasoner,
+                reviewer_reasoner,
+                store,
+                # Chokepoint gate, when present, is the sole relevance authority:
+                # let the reasoning audit annotate without vetoing so matched
+                # signals reach the grounded ④ gate.
+                enforce_reasoning_gate=chokepoint_matcher is None,
+            )
         except AnalysisSkipped as exc:
             result.errors.append(PipelineError(stage="analysis-skip", unit=cluster.id, message=str(exc)))
             state = _analysis_skip_state(exc.evidence_status)

@@ -128,6 +128,7 @@ def analyze(
     thesis_id: str | None = None,
     created_at: datetime | None = None,
     verification_days: int = 90,
+    enforce_reasoning_gate: bool = True,
 ) -> AnalysisResult:
     _ensure_independent_reasoners(author_reasoner.identity, reviewer_reasoner.identity)
     if not signals:
@@ -138,7 +139,11 @@ def analyze(
     base_context = {"signals": signals, "source_signal_ids": source_signal_ids}
 
     investment_reasoning = author_reasoner.reason("investment_reasoning", base_context)
-    _ensure_actionable_reasoning(investment_reasoning)
+    # When a downstream chokepoint relevance gate is the sole authority, the
+    # reasoning audit becomes an annotation (recorded on the thesis) rather than
+    # a veto -- the grounded chokepoint match decides whether a target is produced.
+    if enforce_reasoning_gate:
+        _ensure_actionable_reasoning(investment_reasoning)
 
     free = author_reasoner.reason(
         "free_generation",
