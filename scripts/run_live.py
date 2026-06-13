@@ -34,6 +34,7 @@ from llm_provider.transport import (  # noqa: E402
     LlmProviderError,
     OpenAICompatibleCompletion,
 )
+from llm_provider.chokepoint_matcher import LlmChokepointMatcher  # noqa: E402
 from llm_provider.triage import LlmClusterTriageSelector  # noqa: E402
 from news_contracts.storage import ContractStore  # noqa: E402
 from news_contracts.validation import validate_target, validate_thesis  # noqa: E402
@@ -305,6 +306,13 @@ def print_analysis_selection(result) -> None:
     reasons = getattr(result, "triage_reasons", {}) or {}
     for cluster_id, reason in reasons.items():
         safe_print(f"  triage_reason[{cluster_id}]: {reason}")
+    chokepoint_matches = getattr(result, "chokepoint_matches", {}) or {}
+    if chokepoint_matches:
+        for thesis_id, matches in chokepoint_matches.items():
+            safe_print(f"  chokepoint_matches[{thesis_id}]: {json.dumps(matches, ensure_ascii=False)}")
+    no_nodes = getattr(result, "no_chokepoint_thesis_ids", []) or []
+    if no_nodes:
+        safe_print(f"  no_chokepoint_thesis_ids: {no_nodes}")
 
 
 def _store_counts(store) -> dict[str, int]:
@@ -426,9 +434,11 @@ def _build_live_analysis_components(*, stub_market_data: bool = False):
     reviewer_transport = build_transport("deepseek")
     proposer_transport = build_transport("deepseek")
     triage_transport = build_transport("deepseek")
+    chokepoint_transport = build_transport("deepseek")
     author = LlmReasoner(ReasonerIdentity("author-live-1", "synthesis-author"), transport=author_transport)
     reviewer = LlmReasoner(ReasonerIdentity("reviewer-live-1", "skeptic-reviewer"), transport=reviewer_transport)
     triage_selector = LlmClusterTriageSelector(transport=triage_transport)
+    chokepoint_matcher = LlmChokepointMatcher(transport=chokepoint_transport)
 
     provider_chain = None
     universe_source = "fixture"
@@ -452,9 +462,11 @@ def _build_live_analysis_components(*, stub_market_data: bool = False):
         "reviewer_transport": reviewer_transport,
         "proposer_transport": proposer_transport,
         "triage_transport": triage_transport,
+        "chokepoint_transport": chokepoint_transport,
         "author": author,
         "reviewer": reviewer,
         "triage_selector": triage_selector,
+        "chokepoint_matcher": chokepoint_matcher,
         "provider_chain": provider_chain,
         "universe_source": universe_source,
         "universe_skipped_reasons": universe_skipped_reasons,
@@ -515,6 +527,7 @@ def run_live_analyze(
             pending_max_age_days=pending_max_age_days,
             max_attempts=max_attempts,
             triage_selector=components["triage_selector"],
+            chokepoint_matcher=components["chokepoint_matcher"],
         )
         print_store_counts(store)
         print_analysis_selection(result)
@@ -549,6 +562,7 @@ def run_live_analyze(
         print_usage("triage", components["triage_transport"])
         print_usage("author", components["author_transport"])
         print_usage("reviewer", components["reviewer_transport"])
+        print_usage("chokepoint", components["chokepoint_transport"])
         print_usage("proposer", components["proposer_transport"])
         safe_print("=" * 72)
     return 0
@@ -594,6 +608,7 @@ def run_live_pipeline(
             pending_max_age_days=pending_max_age_days,
             max_attempts=max_attempts,
             triage_selector=components["triage_selector"],
+            chokepoint_matcher=components["chokepoint_matcher"],
         )
         print_pipeline_ingestion(result)
         print_store_counts(store)
@@ -624,6 +639,7 @@ def run_live_pipeline(
         print_usage("triage", components["triage_transport"])
         print_usage("author", components["author_transport"])
         print_usage("reviewer", components["reviewer_transport"])
+        print_usage("chokepoint", components["chokepoint_transport"])
         print_usage("proposer", components["proposer_transport"])
         safe_print("=" * 72)
     return 0

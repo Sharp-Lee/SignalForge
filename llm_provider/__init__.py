@@ -2,12 +2,14 @@
 
 from .schemas import (
     ADVERSARIAL_SCHEMA,
+    CHOKEPOINT_MATCH_SCHEMA,
     CLUSTER_TRIAGE_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
     INVESTMENT_REASONING_SCHEMA,
     TARGET_PROPOSAL_SCHEMA,
 )
+from .chokepoint_matcher import ChokepointMatch, LlmChokepointMatcher
 from .transport import (
     AnthropicCompletion,
     Completion,
@@ -18,6 +20,7 @@ from .transport import (
 from .triage import LlmClusterTriageSelector, TriageSelection
 from .validation import (
     enforce_adversarial_output,
+    enforce_chokepoint_match_output,
     enforce_cluster_triage_output,
     enforce_completeness_output,
     enforce_free_generation_output,
@@ -29,11 +32,14 @@ from .validation import (
 __all__ = [
     "ADVERSARIAL_SCHEMA",
     "AnthropicCompletion",
+    "CHOKEPOINT_MATCH_SCHEMA",
     "CLUSTER_TRIAGE_SCHEMA",
+    "ChokepointMatch",
     "COMPLETENESS_SCHEMA",
     "Completion",
     "FREE_GENERATION_SCHEMA",
     "INVESTMENT_REASONING_SCHEMA",
+    "LlmChokepointMatcher",
     "LlmClusterTriageSelector",
     "LlmProviderError",
     "OpenAICompatibleCompletion",
@@ -41,6 +47,7 @@ __all__ = [
     "TriageSelection",
     "UsageRecord",
     "enforce_adversarial_output",
+    "enforce_chokepoint_match_output",
     "enforce_cluster_triage_output",
     "enforce_completeness_output",
     "enforce_free_generation_output",

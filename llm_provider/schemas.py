@@ -184,3 +184,25 @@ CLUSTER_TRIAGE_SCHEMA = {
         }
     },
 }
+
+
+CHOKEPOINT_MATCH_SCHEMA = {
+    "title": "chokepoint_match",
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["matched"],
+    "properties": {
+        "matched": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["node", "reason"],
+                "properties": {
+                    "node": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+            },
+        }
+    },
+}

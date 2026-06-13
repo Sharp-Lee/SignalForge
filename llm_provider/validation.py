@@ -7,6 +7,7 @@ from news_contracts.schemas import load_contract_schema
 
 from .schemas import (
     ADVERSARIAL_SCHEMA,
+    CHOKEPOINT_MATCH_SCHEMA,
     CLUSTER_TRIAGE_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
@@ -114,6 +115,26 @@ def enforce_cluster_triage_output(output: dict, allowed_cluster_ids: set[str]) -
     return cleaned
 
 
+def enforce_chokepoint_match_output(output: dict, allowed_nodes: set[str]) -> list[dict]:
+    matched = output.get("matched")
+    if not isinstance(matched, list):
+        raise LlmProviderError("chokepoint match requires matched array")
+    cleaned = []
+    seen = set()
+    for item in matched:
+        if not isinstance(item, dict):
+            raise LlmProviderError("chokepoint match item must be an object")
+        node = item.get("node")
+        if node not in allowed_nodes:
+            raise LlmProviderError(f"chokepoint match selected unknown node: {node}")
+        _require_nonempty_text(item, "reason")
+        if node in seen:
+            continue
+        seen.add(node)
+        cleaned.append({"node": node, "reason": item["reason"].strip()})
+    return cleaned
+
+
 def schema_allowed_fields() -> dict[str, set[str]]:
     thesis_fields = set(load_contract_schema("thesis-contract")["properties"])
     target_fields = set(load_contract_schema("target-contract")["properties"])
@@ -123,6 +144,7 @@ def schema_allowed_fields() -> dict[str, set[str]]:
         "adversarial_falsification": set(ADVERSARIAL_SCHEMA["properties"]) - {"reviewer", "review_run_id", "strongest_counterargument", "hedge_variables"},
         "target_proposal": set(TARGET_PROPOSAL_SCHEMA["properties"]["candidates"]["items"]["properties"]) - (target_fields | {"eligible"}),
         "cluster_triage": set(CLUSTER_TRIAGE_SCHEMA["properties"]) - {"selected"},
+        "chokepoint_match": set(CHOKEPOINT_MATCH_SCHEMA["properties"]) - {"matched"},
         "investment_reasoning": set(),
     }
 

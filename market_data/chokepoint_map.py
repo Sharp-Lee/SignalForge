@@ -48,6 +48,14 @@ class ChokepointMap(TypedDict):
     nodes: list[ChokepointNode]
 
 
+class CompactChokepointNode(TypedDict):
+    node: str
+    chokepoint_holder: str
+    china_position: str
+    triggers: list[str]
+    a_share: list[dict[str, str]]
+
+
 _STRUCTURES = {"monopoly", "oligopoly", "fragmented"}
 _CHINA_POSITIONS = {"dominant", "substitute", "absent"}
 _LEVELS = {"high", "mid", "low"}
@@ -113,6 +121,31 @@ def trigger_index(path: str | Path | None = None) -> dict[str, list[str]]:
         if node_name and triggers:
             index[node_name] = list(triggers)
     return index
+
+
+def curated_nodes(path: str | Path | None = None) -> list[CompactChokepointNode]:
+    """Return compact curated screen-passing nodes for relevance matching."""
+
+    compact: list[CompactChokepointNode] = []
+    for node in load_map(path)["nodes"]:
+        if node["curation_status"] != "curated" or node.get("screen_pass") is not True:
+            continue
+        compact.append(
+            {
+                "node": node["node"],
+                "chokepoint_holder": node["chokepoint_holder"],
+                "china_position": node["china_position"],
+                "triggers": list(node.get("triggers") or []),
+                "a_share": [
+                    {
+                        "code": record["code"],
+                        "name": record.get("name", ""),
+                    }
+                    for record in node.get("a_share", [])
+                ],
+            }
+        )
+    return compact
 
 
 def _validate_map(payload: Any, path: Path) -> None:

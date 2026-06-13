@@ -52,6 +52,18 @@ Every reason MUST be written in Simplified Chinese (简体中文).
 Only use cluster_id values from the supplied candidate list. Never invent cluster ids."""
 
 
+CHOKEPOINT_MATCH_SYSTEM = """你是 SignalForge 卡脖子匹配器。
+给定一条论点和一组【已接地的固定卡脖子节点】,判断这条论点是否是某个节点的【真实催化剂】。
+真实催化剂 = 行业级的供需/价格/产能/订单/国产替代节奏/竞争格局的实质变化。例如:HBM 售罄、内存合约价翻倍、1.6T 光模块涨价、云厂 capex 指引上调、晶圆厂扩产、出口管制、行业性缺货或扩产。
+
+以下一律返回 matched=[],绝不命中:
+- 单一终端产品的发布/评测/参数(笔记本、工作站、迷你PC、NAS、单款服务器、消费数码、展会样机)——【即使它搭载了先进芯片(如 Blackwell/RTX GPU)也不算】:一款终端产品不会撼动数据中心光模块/电源/存储/设备的行业级需求;
+- 沾边提及、泛 AI 评论、常规供应链利好、只出现类似关键词但没有实质行业级传导的内容。
+
+判定自检:"这条信号会不会实质改变这个卡脖子环节的行业供需或价格?"——只有答案明确为"是"才命中。
+只能使用提供的 node 名称,绝不发明节点。每个命中给一句说明行业级传导的简体中文 reason。默认保守,宁可不命中,不可硬凑。"""
+
+
 def render_reasoner_user(role: str, context: dict) -> str:
     if role == "investment_reasoning":
         return _json_prompt(
@@ -171,6 +183,46 @@ def render_cluster_triage_user(
             ],
         },
     )
+
+
+def render_chokepoint_match_user(*, thesis: dict, signals: list[dict], nodes: list[dict]) -> str:
+    return _json_prompt(
+        "Match this confirmed thesis to grounded chokepoint nodes before target generation.",
+        {
+            "thesis": _compact_thesis(thesis),
+            "source_signals": [_compact_match_signal(signal) for signal in signals],
+            "curated_nodes": nodes,
+            "rules": [
+                "Return matched: [] unless the thesis is a true catalyst for a supplied node.",
+                "A true catalyst must materially affect supply, demand, price, capacity, orders, domestic substitution, or competitive structure.",
+                "Only use node names from curated_nodes[].node.",
+                "reason must be Simplified Chinese and explain the concrete catalyst path.",
+            ],
+        },
+    )
+
+
+def _compact_thesis(thesis: dict) -> dict:
+    return {
+        "id": thesis.get("id"),
+        "body": thesis.get("body"),
+        "direction": thesis.get("direction"),
+        "confidence": thesis.get("confidence"),
+        "substantive_claims": thesis.get("substantive_claims") or [],
+        "transmission_path": thesis.get("transmission_path") or [],
+        "investment_reasoning": thesis.get("investment_reasoning"),
+    }
+
+
+def _compact_match_signal(signal: dict) -> dict:
+    source = signal.get("source") or {}
+    return {
+        "signal_id": signal.get("id"),
+        "source": source.get("name") or source.get("id"),
+        "published_at": source.get("published_at"),
+        "title": signal.get("title"),
+        "summary": (signal.get("body") or "")[:420],
+    }
 
 
 def _json_prompt(task: str, payload: dict) -> str:

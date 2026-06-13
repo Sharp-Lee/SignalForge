@@ -1,3 +1,5 @@
+import json
+
 from analysis_orchestration import ReasonerIdentity, StubReasoner
 from news_contracts.storage import ContractStore
 from pipeline_orchestration.core import _signal_score
@@ -91,6 +93,21 @@ class StaticClusterer:
             )
             for index, group in enumerate(self.groups)
         ]
+
+
+class StubChokepointMatcher:
+    def __init__(self, matches):
+        self.matches = matches
+        self.calls: list[dict] = []
+
+    def match(self, thesis: dict, *, signals: list[dict], nodes: list[dict]):
+        self.calls.append({"thesis": thesis, "signals": signals, "nodes": nodes})
+        return list(self.matches)
+
+
+class FailingChokepointMatcher:
+    def match(self, thesis: dict, *, signals: list[dict], nodes: list[dict]):
+        raise TimeoutError("matcher timed out")
 
 
 def investment_reasoning_response(source_ids: list[str]) -> dict:
@@ -293,6 +310,103 @@ def test_pipeline_runs_end_to_end_from_signal_to_watchlist_target(tmp_path):
     assert store.connection.execute("select count(*) as count from theses").fetchone()["count"] == 1
     assert store.connection.execute("select count(*) as count from targets").fetchone()["count"] == 1
     assert result.targets[0]["state"] == "watch"
+
+
+def test_pipeline_chokepoint_match_limits_targets_to_matched_node_symbols(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+    in_node = qualified_candidate(symbol="002851.SZ", name="Wrong Model Name")
+    out_of_node = qualified_candidate(symbol="300001.SZ", name="Legacy Full Universe Candidate")
+
+    result = run_pipeline(
+        adapters=[rss_adapter_with_signal()],
+        author_reasoner=author_reasoner(),
+        reviewer_reasoner=reviewer_reasoner(),
+        proposer=StubTargetProposer([out_of_node, in_node]),
+        price_lookup=StubPriceLookup({"002851.SZ": 0.08, "300001.SZ": 0.08}),
+        store=store,
+        period="2026-W24",
+        chokepoint_matcher=StubChokepointMatcher(
+            [{"node": "服务器电源HVDC", "reason": "AI服务器电源供给约束直接催化HVDC节点。"}]
+        ),
+    )
+
+    assert result.errors == []
+    assert len(result.theses) == 1
+    assert result.theses[0]["chokepoint_nodes"] == ["服务器电源HVDC"]
+    assert len(result.targets) == 1
+    assert result.targets[0]["symbol"] == "002851.SZ"
+    assert result.targets[0]["name"] == "麦格米特"
+    assert result.targets[0]["chokepoint_node"] == "服务器电源HVDC"
+    assert result.targets[0]["chokepoint_holder"]
+    assert result.targets[0]["chokepoint_reason"] == "AI服务器电源供给约束直接催化HVDC节点。"
+    assert result.chokepoint_matches[result.theses[0]["id"]][0]["node"] == "服务器电源HVDC"
+    assert store.connection.execute("select count(*) as count from targets").fetchone()["count"] == 1
+    stored = json.loads(store.connection.execute("select payload_json from targets").fetchone()["payload_json"])
+    assert stored["chokepoint_node"] == "服务器电源HVDC"
+    assert stored["chokepoint_holder"] == result.targets[0]["chokepoint_holder"]
+
+
+def test_pipeline_chokepoint_no_match_skips_target_generation(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+    price_lookup = StubPriceLookup({"002851.SZ": 0.08})
+
+    result = run_pipeline(
+        adapters=[rss_adapter_with_signal()],
+        author_reasoner=author_reasoner(),
+        reviewer_reasoner=reviewer_reasoner(),
+        proposer=StubTargetProposer([qualified_candidate(symbol="002851.SZ")]),
+        price_lookup=price_lookup,
+        store=store,
+        chokepoint_matcher=StubChokepointMatcher([]),
+    )
+
+    assert result.errors == []
+    assert len(result.theses) == 1
+    assert result.theses[0]["chokepoint_nodes"] == []
+    assert result.targets == []
+    assert result.no_chokepoint_thesis_ids == [result.theses[0]["id"]]
+    assert price_lookup.calls == []
+    assert store.connection.execute("select count(*) as count from targets").fetchone()["count"] == 0
+
+
+def test_pipeline_chokepoint_match_failure_skips_target_generation_fail_closed(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+    price_lookup = StubPriceLookup({"002851.SZ": 0.08})
+
+    result = run_pipeline(
+        adapters=[rss_adapter_with_signal()],
+        author_reasoner=author_reasoner(),
+        reviewer_reasoner=reviewer_reasoner(),
+        proposer=StubTargetProposer([qualified_candidate(symbol="002851.SZ")]),
+        price_lookup=price_lookup,
+        store=store,
+        chokepoint_matcher=FailingChokepointMatcher(),
+    )
+
+    assert len(result.theses) == 1
+    assert result.targets == []
+    assert result.errors[0].stage == "chokepoint-match"
+    assert "matcher timed out" in result.errors[0].message
+    assert price_lookup.calls == []
+    assert store.connection.execute("select count(*) as count from targets").fetchone()["count"] == 0
+
+
+def test_pipeline_without_chokepoint_matcher_preserves_legacy_target_generation(tmp_path):
+    store = ContractStore(tmp_path / "contracts.db")
+
+    result = run_pipeline(
+        adapters=[rss_adapter_with_signal()],
+        author_reasoner=author_reasoner(),
+        reviewer_reasoner=reviewer_reasoner(),
+        proposer=StubTargetProposer([qualified_candidate(symbol="300001.SZ")]),
+        price_lookup=StubPriceLookup({"300001.SZ": 0.08}),
+        store=store,
+    )
+
+    assert result.errors == []
+    assert len(result.targets) == 1
+    assert result.targets[0]["symbol"] == "300001.SZ"
+    assert "chokepoint_nodes" not in result.theses[0]
 
 
 def test_pipeline_records_analysis_failure_without_crashing(tmp_path):

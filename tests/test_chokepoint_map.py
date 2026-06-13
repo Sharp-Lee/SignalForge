@@ -4,7 +4,14 @@ import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
 from market_data import DEFAULT_A_SHARE_ALLOWLIST
-from market_data.chokepoint_map import ChokepointMapError, load_map, symbol_names, trigger_index, universe_codes
+from market_data.chokepoint_map import (
+    ChokepointMapError,
+    curated_nodes,
+    load_map,
+    symbol_names,
+    trigger_index,
+    universe_codes,
+)
 
 
 OLD_A_SHARE_ALLOWLIST = [
@@ -306,6 +313,60 @@ def test_trigger_index_returns_curated_node_triggers(tmp_path):
     )
 
     assert trigger_index(path) == {"CPO": ["co-packaged optics", "CPO"]}
+
+
+def test_curated_nodes_returns_only_screen_passing_curated_compact_records(tmp_path):
+    path = tmp_path / "map.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1",
+                "nodes": [
+                    {"domain": "AI生态", "curation_status": "seed", "a_share": [{"code": "300001.SZ", "name": "Seed"}]},
+                    {
+                        "domain": "AI生态",
+                        "curation_status": "curated",
+                        "branch": ["算力"],
+                        "node": "通过节点",
+                        "structure": "oligopoly",
+                        "chokepoint_holder": "holder",
+                        "china_position": "substitute",
+                        "elasticity": "high",
+                        "triggers": ["trigger"],
+                        "a_share": [{"code": "300002.SZ", "name": "Curated", "purity": "high"}],
+                        "evidence": ["fixture"],
+                        "screen_pass": True,
+                    },
+                    {
+                        "domain": "AI生态",
+                        "curation_status": "curated",
+                        "branch": ["算力"],
+                        "node": "未通过节点",
+                        "structure": "fragmented",
+                        "chokepoint_holder": "none",
+                        "china_position": "dominant",
+                        "elasticity": "low",
+                        "triggers": ["ignore"],
+                        "a_share": [{"code": "300003.SZ", "name": "Rejected"}],
+                        "evidence": ["fixture"],
+                        "screen_pass": False,
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    assert curated_nodes(path) == [
+        {
+            "node": "通过节点",
+            "chokepoint_holder": "holder",
+            "china_position": "substitute",
+            "triggers": ["trigger"],
+            "a_share": [{"code": "300002.SZ", "name": "Curated"}],
+        }
+    ]
 
 
 def test_load_map_reports_invalid_json_clearly(tmp_path):

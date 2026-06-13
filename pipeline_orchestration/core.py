@@ -5,9 +5,10 @@ from datetime import UTC, datetime, timedelta
 import json
 
 from analysis_orchestration import AnalysisSkipped, analyze
+from market_data.chokepoint_map import curated_nodes
 from signal_clustering import DefaultSignalClusterer
 from source_ingestion.runner import run_once
-from target_generation import propose_targets
+from target_generation import LlmTargetProposer, propose_targets
 
 
 @dataclass
@@ -31,6 +32,8 @@ class PipelineResult:
     triage_candidate_count: int = 0
     triage_reasons: dict[str, str] = field(default_factory=dict)
     triage_error: str | None = None
+    chokepoint_matches: dict[str, list[dict]] = field(default_factory=dict)
+    no_chokepoint_thesis_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -57,6 +60,7 @@ def run_pipeline(
     max_attempts: int = 2,
     triage_selector=None,
     triage_candidate_limit: int = 200,
+    chokepoint_matcher=None,
 ) -> PipelineResult:
     ingestion = capture_sources(store, adapters)
     result = analyze_pending(
@@ -72,6 +76,7 @@ def run_pipeline(
         max_attempts=max_attempts,
         triage_selector=triage_selector,
         triage_candidate_limit=triage_candidate_limit,
+        chokepoint_matcher=chokepoint_matcher,
     )
     result.ingestion = ingestion
     return result
@@ -95,6 +100,7 @@ def analyze_pending(
     max_attempts: int = 2,
     triage_selector=None,
     triage_candidate_limit: int = 200,
+    chokepoint_matcher=None,
     now: datetime | None = None,
 ) -> PipelineResult:
     _ensure_signal_analysis_state(store)
@@ -137,13 +143,41 @@ def analyze_pending(
             _record_analysis_failure(store, cluster.signals, max_attempts, triage_reason=triage_reason)
             continue
 
-        result.theses.append(analysis.thesis)
         _mark_signals_terminal(store, cluster.signals, "analyzed", triage_reason=triage_reason)
+
+        target_proposer = proposer
+        chokepoint_context = None
+        if chokepoint_matcher is not None:
+            try:
+                chokepoint_context = _match_chokepoints(analysis.thesis, cluster.signals, chokepoint_matcher)
+            except Exception as exc:  # noqa: BLE001 - gate is fail-closed by design.
+                analysis.thesis["chokepoint_nodes"] = []
+                result.theses.append(analysis.thesis)
+                result.errors.append(PipelineError(stage="chokepoint-match", unit=analysis.thesis_id, message=str(exc)))
+                continue
+            if not chokepoint_context["nodes"]:
+                analysis.thesis["chokepoint_nodes"] = []
+                result.theses.append(analysis.thesis)
+                result.no_chokepoint_thesis_ids.append(analysis.thesis_id)
+                result.chokepoint_matches[analysis.thesis_id] = []
+                continue
+            analysis.thesis["chokepoint_nodes"] = [node["node"] for node in chokepoint_context["nodes"]]
+            result.chokepoint_matches[analysis.thesis_id] = [
+                {
+                    "node": node["node"],
+                    "reason": chokepoint_context["reasons"].get(node["node"], ""),
+                    "chokepoint_holder": node["chokepoint_holder"],
+                }
+                for node in chokepoint_context["nodes"]
+            ]
+            target_proposer = _restrict_proposer_to_chokepoint_context(proposer, chokepoint_context)
+
+        result.theses.append(analysis.thesis)
 
         try:
             target_result = propose_targets(
                 analysis.thesis,
-                proposer,
+                target_proposer,
                 price_lookup,
                 store,
                 period=period,
@@ -152,10 +186,127 @@ def analyze_pending(
             result.errors.append(PipelineError(stage="target-generation", unit=analysis.thesis_id, message=str(exc)))
             continue
 
+        if chokepoint_context is not None:
+            _annotate_targets_with_chokepoint_context(target_result.targets, chokepoint_context)
         result.targets.extend(target_result.targets)
         if target_result.empty_recommendation:
             result.empty_recommendations.append(target_result.empty_recommendation)
     return result
+
+
+def _match_chokepoints(thesis: dict, signals: list[dict], matcher) -> dict:
+    nodes = curated_nodes()
+    if not nodes:
+        return {"nodes": [], "reasons": {}}
+    raw_matches = matcher.match(thesis, signals=signals, nodes=nodes)
+    by_node = {node["node"]: node for node in nodes}
+    matched_nodes = []
+    reasons = {}
+    for item in raw_matches:
+        node_name = item.node if hasattr(item, "node") else item.get("node")
+        reason = item.reason if hasattr(item, "reason") else item.get("reason")
+        if node_name not in by_node:
+            raise ValueError(f"chokepoint matcher selected unknown node: {node_name}")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"chokepoint matcher selected {node_name} without reason")
+        if node_name in reasons:
+            continue
+        matched_nodes.append(by_node[node_name])
+        reasons[node_name] = reason.strip()
+    return {"nodes": matched_nodes, "reasons": reasons}
+
+
+def _restrict_proposer_to_chokepoint_context(proposer, context: dict):
+    nodes = context["nodes"]
+    symbol_universe = _symbol_universe_from_nodes(nodes, getattr(proposer, "symbol_universe", None))
+    if isinstance(proposer, LlmTargetProposer):
+        restricted = LlmTargetProposer(
+            system_prompt=proposer.system_prompt,
+            transport=proposer.transport,
+            symbol_universe=symbol_universe,
+            max_tokens=proposer.max_tokens,
+        )
+    else:
+        restricted = _SymbolUniverseFilteringProposer(proposer, symbol_universe)
+    return _ChokepointContextProposer(restricted, context)
+
+
+def _symbol_universe_from_nodes(nodes: list[dict], authoritative_universe: dict[str, str] | None = None) -> dict[str, str]:
+    universe = dict(authoritative_universe or {})
+    scoped: dict[str, str] = {}
+    for node in nodes:
+        for record in node.get("a_share") or []:
+            code = record.get("code")
+            if not code or code in scoped:
+                continue
+            scoped[code] = universe.get(code) or record.get("name") or code
+    return scoped
+
+
+class _SymbolUniverseFilteringProposer:
+    def __init__(self, proposer, symbol_universe: dict[str, str]):
+        self.proposer = proposer
+        self.symbol_universe = symbol_universe
+
+    def propose(self, thesis: dict) -> list[dict]:
+        candidates = []
+        for candidate in self.proposer.propose(thesis):
+            symbol = candidate.get("symbol")
+            if symbol not in self.symbol_universe:
+                continue
+            stamped = dict(candidate)
+            stamped["name"] = self.symbol_universe[symbol]
+            candidates.append(stamped)
+        return candidates
+
+
+class _ChokepointContextProposer:
+    def __init__(self, proposer, context: dict):
+        self.proposer = proposer
+        self.metadata_by_symbol = _target_metadata_by_symbol(context["nodes"], context["reasons"])
+
+    def propose(self, thesis: dict) -> list[dict]:
+        candidates = []
+        for candidate in self.proposer.propose(thesis):
+            symbol = candidate.get("symbol")
+            metadata = self.metadata_by_symbol.get(symbol)
+            if not metadata:
+                candidates.append(candidate)
+                continue
+            stamped = dict(candidate)
+            stamped.update(metadata)
+            candidates.append(stamped)
+        return candidates
+
+
+def _target_metadata_by_symbol(nodes: list[dict], reasons: dict[str, str]) -> dict[str, dict[str, str]]:
+    metadata = {}
+    for node in nodes:
+        for record in node.get("a_share") or []:
+            symbol = record.get("code")
+            if symbol and symbol not in metadata:
+                metadata[symbol] = {
+                    "chokepoint_node": node["node"],
+                    "chokepoint_holder": node["chokepoint_holder"],
+                    "chokepoint_reason": reasons.get(node["node"], ""),
+                }
+    return metadata
+
+
+def _annotate_targets_with_chokepoint_context(targets: list[dict], context: dict) -> None:
+    by_symbol = {}
+    for node in context["nodes"]:
+        for record in node.get("a_share") or []:
+            symbol = record.get("code")
+            if symbol and symbol not in by_symbol:
+                by_symbol[symbol] = node
+    for target in targets:
+        node = by_symbol.get(target.get("symbol"))
+        if not node:
+            continue
+        target["chokepoint_node"] = node["node"]
+        target["chokepoint_holder"] = node["chokepoint_holder"]
+        target["chokepoint_reason"] = context["reasons"].get(node["node"], "")
 
 
 def pending_signals(store) -> list[dict]:

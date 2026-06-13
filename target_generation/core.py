@@ -171,6 +171,10 @@ def _assemble_target(thesis: dict, candidate: dict, price_change: float) -> dict
             "risk": _priced_in_risk(price_change),
         },
     }
+    for field_name in ("chokepoint_node", "chokepoint_holder", "chokepoint_reason"):
+        value = candidate.get(field_name)
+        if isinstance(value, str) and value.strip():
+            target[field_name] = value.strip()
     return target
 
 

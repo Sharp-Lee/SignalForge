@@ -8,15 +8,18 @@ import pytest
 from analysis_orchestration import LlmReasoner, ReasonerIdentity, analyze
 from llm_provider import (
     ADVERSARIAL_SCHEMA,
+    CHOKEPOINT_MATCH_SCHEMA,
     CLUSTER_TRIAGE_SCHEMA,
     COMPLETENESS_SCHEMA,
     FREE_GENERATION_SCHEMA,
     INVESTMENT_REASONING_SCHEMA,
+    LlmChokepointMatcher,
     LlmClusterTriageSelector,
     OpenAICompatibleCompletion,
     TARGET_PROPOSAL_SCHEMA,
     AnthropicCompletion,
     LlmProviderError,
+    enforce_chokepoint_match_output,
     enforce_cluster_triage_output,
     enforce_adversarial_output,
     enforce_free_generation_output,
@@ -455,6 +458,76 @@ def test_cluster_triage_enforcement_rejects_unknown_cluster_and_empty_reason():
             {"selected": [{"cluster_id": "cluster-001", "reason": "   "}]},
             {"cluster-001"},
         )
+
+
+def test_chokepoint_matcher_uses_prompt_schema_and_enforces_node_names():
+    transport = StubCompletion(
+        {
+            "chokepoint_match": {
+                "matched": [{"node": "服务器电源HVDC", "reason": "论点直接指向AI服务器电源供给约束。"}]
+            }
+        }
+    )
+    matcher = LlmChokepointMatcher(transport)
+    nodes = [
+        {
+            "node": "服务器电源HVDC",
+            "chokepoint_holder": "global power supply leaders",
+            "china_position": "substitute",
+            "triggers": ["800V HVDC", "AI服务器电源"],
+            "a_share": [{"code": "002851.SZ", "name": "麦格米特"}],
+        }
+    ]
+
+    matched = matcher.match(
+        {"id": "thesis-1", "body": "AI服务器电源供给趋紧。"},
+        signals=[signal()],
+        nodes=nodes,
+    )
+
+    assert [(item.node, item.reason) for item in matched] == [
+        ("服务器电源HVDC", "论点直接指向AI服务器电源供给约束。")
+    ]
+    assert transport.calls[0]["schema"] == CHOKEPOINT_MATCH_SCHEMA
+    assert transport.calls[0]["thinking"] is None
+    assert "卡脖子匹配器" in transport.calls[0]["system"]
+    assert "真实催化剂" in transport.calls[0]["system"]
+    assert "服务器电源HVDC" in transport.calls[0]["user"]
+
+
+def test_chokepoint_match_enforcement_rejects_hallucinated_node_empty_reason_and_bad_shape():
+    with pytest.raises(LlmProviderError, match="matched array"):
+        enforce_chokepoint_match_output({"matched": "bad"}, {"服务器电源HVDC"})
+
+    with pytest.raises(LlmProviderError, match="unknown node"):
+        enforce_chokepoint_match_output(
+            {"matched": [{"node": "Google搜索框", "reason": "误中关键词"}]},
+            {"服务器电源HVDC"},
+        )
+
+    with pytest.raises(LlmProviderError, match="reason"):
+        enforce_chokepoint_match_output(
+            {"matched": [{"node": "服务器电源HVDC", "reason": "   "}]},
+            {"服务器电源HVDC"},
+        )
+
+
+def test_chokepoint_match_enforcement_dedupes_nodes_in_order():
+    matched = enforce_chokepoint_match_output(
+        {
+            "matched": [
+                {"node": "服务器电源HVDC", "reason": "第一次命中。"},
+                {"node": "服务器电源HVDC", "reason": "重复命中。"},
+                {"node": "液冷", "reason": "第二个节点。"},
+            ]
+        },
+        {"服务器电源HVDC", "液冷"},
+    )
+
+    assert matched == [
+        {"node": "服务器电源HVDC", "reason": "第一次命中。"},
+        {"node": "液冷", "reason": "第二个节点。"},
+    ]
 
 
 @pytest.mark.parametrize(
