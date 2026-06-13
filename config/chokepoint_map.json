@@ -246,16 +246,6 @@
       "curation_status": "seed",
       "a_share": [
         {
-          "code": "688008.SH",
-          "name": "澜起科技"
-        }
-      ]
-    },
-    {
-      "domain": "AI生态",
-      "curation_status": "seed",
-      "a_share": [
-        {
           "code": "002156.SZ",
           "name": "通富微电"
         }
@@ -865,6 +855,114 @@
       "evidence": [
         "上交所公告: 电子特气用于清洗、刻蚀、成膜、掺杂,被称为半导体产业的血液",
         "华特气体资料: 多个集成电路电子特气产品实现进口替代并进入国内外客户供应链"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "存储",
+        "内存接口"
+      ],
+      "node": "内存接口芯片",
+      "structure": "oligopoly",
+      "chokepoint_holder": "三寡头:澜起(Montage)/Renesas/Rambus;澜起约40-45%份额全球领先",
+      "china_position": "dominant",
+      "elasticity": "high",
+      "triggers": [
+        "DDR5",
+        "RCD",
+        "内存接口",
+        "memory interface",
+        "MRDIMM",
+        "DDR5渗透",
+        "register clock driver"
+      ],
+      "a_share": [
+        {
+          "code": "688008.SH",
+          "name": "澜起科技",
+          "role": "内存接口全球龙头",
+          "purity": "high",
+          "confidence": "high"
+        },
+        {
+          "code": "688123.SH",
+          "name": "聚辰股份",
+          "role": "内存模组SPD/温感配套",
+          "purity": "mid",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "周期股,随服务器内存/DRAM周期波动;DDR5渗透+HBM配套+MRDIMM放量是上行驱动"
+      ],
+      "evidence": [
+        "DDR5内存接口三寡头澜起/Renesas/Rambus,澜起约40-45%份额(Valuates/Medium 2025)",
+        "澜起首家量产Gen2 DDR5 RCD、Gen4 RCD 7200MT/s 2025量产"
+      ],
+      "screen_pass": true
+    },
+    {
+      "domain": "AI生态",
+      "curation_status": "curated",
+      "branch": [
+        "算力",
+        "存储",
+        "存储芯片"
+      ],
+      "node": "存储芯片HBM/DRAM",
+      "structure": "oligopoly",
+      "chokepoint_holder": "三寡头:三星/SK海力士/美光,合计>90% DRAM;2026 HBM基本售罄",
+      "china_position": "absent",
+      "elasticity": "high",
+      "triggers": [
+        "HBM",
+        "DRAM",
+        "NAND",
+        "内存涨价",
+        "存储涨价",
+        "memory shortage",
+        "SK Hynix",
+        "Hynix",
+        "Micron",
+        "美光",
+        "DDR5涨价",
+        "HBM扩产",
+        "memory production"
+      ],
+      "a_share": [
+        {
+          "code": "688008.SH",
+          "name": "澜起科技",
+          "role": "内存周期最纯A股暴露(接口)",
+          "purity": "high",
+          "confidence": "high"
+        },
+        {
+          "code": "300475.SZ",
+          "name": "香农芯创",
+          "role": "海力士存储代理,营收随涨价",
+          "purity": "low",
+          "confidence": "mid"
+        },
+        {
+          "code": "688525.SH",
+          "name": "佰维存储",
+          "role": "存储模组,提价受益但成本两面",
+          "purity": "low",
+          "confidence": "mid"
+        }
+      ],
+      "caveats": [
+        "⚠️ A股无HBM/DRAM纯玩(长鑫/长存未上市):cleanest暴露是内存接口(澜起),DRAM本体只能模组/代理/封测间接,弹性远低于美光本体",
+        "此节点用于'命中即诚实告知无纯玩',不得硬凑DRAM受益"
+      ],
+      "evidence": [
+        "三星/SK海力士/美光>90% DRAM、合计约3万亿美元寡头(softwareseni)",
+        "2026 HBM售罄无现货、DDR5合约价+100%($7→$19.5)、Gartner预测2026 DRAM涨价47%(tomshardware/networkworld)"
       ],
       "screen_pass": true
     }

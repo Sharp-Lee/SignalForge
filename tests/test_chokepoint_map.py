@@ -187,6 +187,13 @@ BATCH2_NEW_CURATED_CODES = {
 }
 
 
+MEMORY_NEW_CURATED_CODES = {
+    "300475.SZ",  # 香农芯创 (海力士存储代理)
+    "688123.SH",  # 聚辰股份 (内存模组配套)
+    # 澜起科技 688008 promoted from seed -> curated (already in universe)
+}
+
+
 def test_universe_includes_all_original_codes_plus_curated_additions():
     codes = universe_codes()
     # seed -> curated migration must not drop any of the original 40
@@ -194,7 +201,9 @@ def test_universe_includes_all_original_codes_plus_curated_additions():
     # batch-1 and batch-2 curated chokepoint additions are now included
     assert BATCH1_NEW_CURATED_CODES <= set(codes)
     assert BATCH2_NEW_CURATED_CODES <= set(codes)
-    assert len(codes) == 52
+    assert MEMORY_NEW_CURATED_CODES <= set(codes)
+    assert "688008.SH" in codes  # 澜起科技 promoted seed -> curated, still present
+    assert len(codes) == 54
     assert len(codes) == len(set(codes))  # no double-count across seed/curated
     assert DEFAULT_A_SHARE_ALLOWLIST == codes
 
@@ -204,10 +213,10 @@ def test_loader_interfaces_after_batch2_curation():
     names = symbol_names()
 
     assert loaded["schema_version"] == "0.1"
-    assert len(loaded["nodes"]) == 44  # 32 seed + 12 curated (batch-1 + batch-2)
+    assert len(loaded["nodes"]) == 45  # 31 seed + 14 curated (batch-1 + batch-2 + memory)
     assert names["300308.SZ"] == "中际旭创"
     assert all(names.values())  # every code carries a tushare-stamped name
-    assert len(names) == 52
+    assert len(names) == 54
     # trigger_index is now populated by curated nodes (powers the daily scan)
     ti = trigger_index()
     assert set(ti) == {
@@ -223,10 +232,14 @@ def test_loader_interfaces_after_batch2_curation():
         "CMP设备",
         "CMP抛光液",
         "电子特气",
+        "内存接口芯片",
+        "存储芯片HBM/DRAM",
     }
     assert "1.6T" in ti["光模块"]
     assert "GAA刻蚀" in ti["刻蚀设备"]
     assert "HBM扩产" in ti["CMP抛光液"]
+    assert "DDR5" in ti["内存接口芯片"]
+    assert "SK Hynix" in ti["存储芯片HBM/DRAM"]
 
 
 def test_universe_codes_preserve_order_and_dedupe_first_occurrence(tmp_path):
