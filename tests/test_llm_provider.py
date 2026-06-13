@@ -444,6 +444,77 @@ def test_cluster_triage_selector_uses_prompt_schema_and_enforces_cluster_ids():
     assert "简体中文" in transport.calls[0]["system"]
     assert "cluster-002" in transport.calls[0]["user"]
     assert "no keyword prefilter" in transport.calls[0]["user"]
+    payload = json.loads(transport.calls[0]["user"].split("INPUT_JSON:\n", 1)[1])
+    assert "curated_chokepoint_nodes" not in payload
+
+
+def test_cluster_triage_selector_injects_chokepoint_nodes_and_product_noise_rule():
+    transport = StubCompletion(
+        {
+            "cluster_triage": {
+                "selected": [{"cluster_id": "cluster-memory", "reason": "命中存储芯片HBM/DRAM节点,供给扩张会改变行业级产能。"}]
+            }
+        }
+    )
+    selector = LlmClusterTriageSelector(transport)
+    clusters = [
+        SignalCluster(
+            "cluster-dell",
+            [
+                {
+                    **signal(),
+                    "id": "sig-dell",
+                    "title": "Dell launches RTX workstation laptop",
+                    "body": "A single terminal product review mentions Blackwell GPUs.",
+                }
+            ],
+            "singleton",
+        ),
+        SignalCluster(
+            "cluster-memory",
+            [
+                {
+                    **signal(),
+                    "id": "sig-memory",
+                    "title": "SK Hynix triples HBM capacity for AI memory demand",
+                    "body": "SK Hynix says HBM capacity will increase threefold as AI accelerator memory demand stays tight.",
+                }
+            ],
+            "singleton",
+        ),
+    ]
+    nodes = [
+        {
+            "node": "存储芯片HBM/DRAM",
+            "chokepoint_holder": "SK Hynix/Micron/Samsung",
+            "china_position": "absent",
+            "triggers": ["HBM扩产", "DRAM涨价", "内存产能售罄"],
+            "a_share": [],
+        }
+    ]
+
+    selected = selector.select(clusters, top_k=1, chokepoint_nodes=nodes)
+
+    assert [(item.cluster_id, item.reason) for item in selected] == [
+        ("cluster-memory", "命中存储芯片HBM/DRAM节点,供给扩张会改变行业级产能。")
+    ]
+    assert "Chokepoint-aware mode" in transport.calls[0]["system"]
+    assert "terminal-product" in transport.calls[0]["system"]
+    assert "Blackwell" in transport.calls[0]["system"]
+    payload = json.loads(transport.calls[0]["user"].split("INPUT_JSON:\n", 1)[1])
+    assert payload["curated_chokepoint_nodes"] == [
+        {
+            "node": "存储芯片HBM/DRAM",
+            "chokepoint_holder": "SK Hynix/Micron/Samsung",
+            "triggers": ["HBM扩产", "DRAM涨价", "内存产能售罄"],
+        }
+    ]
+    rules = "\n".join(payload["rules"])
+    assert "存储芯片HBM/DRAM" not in rules
+    assert "materially affect" in rules
+    assert "terminal-product" in rules
+    assert "NAS" in rules
+    assert "Blackwell" in rules
 
 
 def test_cluster_triage_enforcement_rejects_unknown_cluster_and_empty_reason():

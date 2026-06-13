@@ -51,6 +51,11 @@ Exclude generic commentary, market chatter, vendor marketing, pure product revie
 Every reason MUST be written in Simplified Chinese (简体中文).
 Only use cluster_id values from the supplied candidate list. Never invent cluster ids."""
 
+TRIAGE_CHOKEPOINT_CONTEXT = """Chokepoint-aware mode:
+Use the supplied curated chokepoint nodes as grounded priority context. Prefer clusters that are true catalysts for a supplied node because they materially affect industry-level supply, demand, price, capacity, orders, domestic substitution, or competitive structure. In the Chinese reason, mention the matched node name when that is why the cluster is selected.
+
+Deprioritize single terminal-product launches, reviews, workstations, laptops, mini-PCs, NAS, single-server news, consumer devices, and expo demos. Even if they mention Blackwell, RTX, AI PC, or other advanced chips, they are not chokepoint catalysts unless the cluster clearly changes a supplied node's industry-level economics."""
+
 
 CHOKEPOINT_MATCH_SYSTEM = """你是 SignalForge 卡脖子匹配器。
 给定一条论点和一组【已接地的固定卡脖子节点】,判断这条论点是否是某个节点的【真实催化剂】。
@@ -166,23 +171,42 @@ def render_cluster_triage_user(
     top_k: int,
     total_clusters: int,
     candidate_limit: int,
+    chokepoint_nodes: list[dict] | None = None,
 ) -> str:
+    payload = {
+        "top_k": top_k,
+        "total_clusters": total_clusters,
+        "candidate_limit": candidate_limit,
+        "candidate_selection": "newest clusters by max source.published_at; no keyword prefilter",
+        "clusters": clusters,
+        "rules": [
+            "Return at most top_k selected clusters.",
+            "Every cluster_id must come from supplied clusters.",
+            "reason must be Simplified Chinese and explain tradeable AI ecosystem value.",
+            "Select only clusters with real A-share research value; otherwise return selected: [].",
+        ],
+    }
+    if chokepoint_nodes:
+        payload["curated_chokepoint_nodes"] = chokepoint_nodes
+        payload["rules"].extend(
+            [
+                "Use curated_chokepoint_nodes as grounded priority context, not as a hard filter.",
+                "Prefer clusters that materially affect a supplied node's industry-level supply, demand, price, capacity, orders, domestic substitution, or competitive structure.",
+                "When selecting a cluster because of chokepoint relevance, mention the matched node name in the Simplified Chinese reason.",
+                "Deprioritize single terminal-product launches, reviews, workstations, laptops, mini-PCs, NAS, single-server news, consumer devices, and expo demos unless they clearly change a supplied node's industry-level economics.",
+                "Advanced chips mentioned inside a terminal product, such as Blackwell, RTX, or AI PC, do not by themselves make the cluster a chokepoint catalyst.",
+            ]
+        )
     return _json_prompt(
         "Select pending signal clusters for deep analysis.",
-        {
-            "top_k": top_k,
-            "total_clusters": total_clusters,
-            "candidate_limit": candidate_limit,
-            "candidate_selection": "newest clusters by max source.published_at; no keyword prefilter",
-            "clusters": clusters,
-            "rules": [
-                "Return at most top_k selected clusters.",
-                "Every cluster_id must come from supplied clusters.",
-                "reason must be Simplified Chinese and explain tradeable AI ecosystem value.",
-                "Select only clusters with real A-share research value; otherwise return selected: [].",
-            ],
-        },
+        payload,
     )
+
+
+def render_cluster_triage_system(*, chokepoint_nodes: list[dict] | None = None) -> str:
+    if not chokepoint_nodes:
+        return TRIAGE_SYSTEM
+    return f"{TRIAGE_SYSTEM}\n\n{TRIAGE_CHOKEPOINT_CONTEXT}"
 
 
 def render_chokepoint_match_user(*, thesis: dict, signals: list[dict], nodes: list[dict]) -> str:

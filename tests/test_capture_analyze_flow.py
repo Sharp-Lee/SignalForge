@@ -65,6 +65,24 @@ class StubTriageSelector:
         return list(self.selections)
 
 
+class ChokepointAwareTriageSelector:
+    def __init__(self, selections=None):
+        self.selections = selections if selections is not None else []
+        self.calls = []
+
+    def select(self, clusters, top_k, *, total_clusters=None, candidate_limit=None, chokepoint_nodes=None):
+        self.calls.append(
+            {
+                "cluster_ids": [cluster.id for cluster in clusters],
+                "top_k": top_k,
+                "total_clusters": total_clusters,
+                "candidate_limit": candidate_limit,
+                "chokepoint_nodes": chokepoint_nodes,
+            }
+        )
+        return list(self.selections)
+
+
 def investment_reasoning_response(source_ids: list[str], **overrides) -> dict:
     audit = {
         "source_signal_ids": source_ids,
@@ -311,6 +329,58 @@ def test_analyze_pending_uses_llm_triage_selection_and_persists_reason(tmp_path)
         ("sig-power",),
     ).fetchone()
     assert row["triage_reason"] == "电力瓶颈具备A股电网设备和储能传导价值。"
+
+
+def test_analyze_pending_passes_curated_nodes_to_compatible_triage_selector(tmp_path, monkeypatch):
+    nodes = [
+        {
+            "node": "存储芯片HBM/DRAM",
+            "chokepoint_holder": "SK Hynix/Micron/Samsung",
+            "china_position": "absent",
+            "triggers": ["HBM扩产", "DRAM涨价"],
+            "a_share": [],
+        }
+    ]
+    monkeypatch.setattr("pipeline_orchestration.core.curated_nodes", lambda: nodes)
+    store = ContractStore(tmp_path / "contracts.db")
+    capture_sources(
+        store,
+        [
+            rss_adapter(
+                "rss:triage",
+                [
+                    raw_item("sig-noise", "Dell RTX workstation review", "Single workstation review.", "2026-06-12T08:00:00Z"),
+                    raw_item(
+                        "sig-memory",
+                        "SK Hynix HBM capacity expands threefold",
+                        "HBM capacity expansion changes AI accelerator memory supply.",
+                        "2026-06-12T09:00:00Z",
+                    ),
+                ],
+            )
+        ],
+    )
+    triage = ChokepointAwareTriageSelector(
+        [TriageSelection("cluster-002", "命中存储芯片HBM/DRAM节点,HBM扩产具备行业级供需价值。")]
+    )
+
+    result = analyze_pending(
+        store,
+        author_reasoner=author(),
+        reviewer_reasoner=reviewer(),
+        proposer=StubTargetProposer([candidate()]),
+        price_lookup=StubPriceLookup({"300001.SZ": 0.02}),
+        clusterer=StaticClusterer([["sig-noise"], ["sig-memory"]]),
+        top_k=1,
+        triage_selector=triage,
+        triage_candidate_limit=200,
+        now=datetime(2026, 6, 12, tzinfo=UTC),
+    )
+
+    assert triage.calls[0]["chokepoint_nodes"] == nodes
+    assert result.triage_mode == "llm_triage"
+    assert result.theses[0]["source_signal_ids"] == ["sig-memory"]
+    assert result.triage_reasons == {"cluster-002": "命中存储芯片HBM/DRAM节点,HBM扩产具备行业级供需价值。"}
 
 
 def test_analyze_pending_triage_failure_empty_or_unknown_falls_back_to_keyword_top_k(tmp_path):

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from .prompts import TRIAGE_SYSTEM, render_cluster_triage_user
+from .prompts import render_cluster_triage_system, render_cluster_triage_user
 from .schemas import CLUSTER_TRIAGE_SCHEMA
 from .transport import Completion
 from .validation import enforce_cluster_triage_output
@@ -27,15 +27,18 @@ class LlmClusterTriageSelector:
         *,
         total_clusters: int | None = None,
         candidate_limit: int | None = None,
+        chokepoint_nodes: list[dict] | None = None,
     ) -> list[TriageSelection]:
         compact_clusters = [_compact_cluster(cluster) for cluster in clusters]
+        compact_nodes = [_compact_chokepoint_node(node) for node in (chokepoint_nodes or [])]
         output = self.transport(
-            system=TRIAGE_SYSTEM,
+            system=render_cluster_triage_system(chokepoint_nodes=compact_nodes),
             user=render_cluster_triage_user(
                 clusters=compact_clusters,
                 top_k=top_k,
                 total_clusters=total_clusters if total_clusters is not None else len(compact_clusters),
                 candidate_limit=candidate_limit if candidate_limit is not None else len(compact_clusters),
+                chokepoint_nodes=compact_nodes,
             ),
             schema=CLUSTER_TRIAGE_SCHEMA,
             max_tokens=self.max_tokens,
@@ -66,6 +69,14 @@ def _compact_signal(signal: dict) -> dict:
         "published_at": source.get("published_at"),
         "title": signal.get("title"),
         "summary": body[:320],
+    }
+
+
+def _compact_chokepoint_node(node: dict) -> dict:
+    return {
+        "node": node.get("node"),
+        "chokepoint_holder": node.get("chokepoint_holder"),
+        "triggers": list(node.get("triggers") or []),
     }
 
 

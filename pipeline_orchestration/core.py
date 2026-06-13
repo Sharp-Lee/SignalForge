@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+import inspect
 import json
 
 from analysis_orchestration import AnalysisSkipped, analyze
@@ -466,7 +467,8 @@ def _select_clusters_for_analysis(
         )
     candidate_clusters = _freshest_clusters(clusters, triage_candidate_limit)
     try:
-        selected = triage_selector.select(
+        selected = _select_with_optional_chokepoint_nodes(
+            triage_selector,
             candidate_clusters,
             top_k,
             total_clusters=len(clusters),
@@ -521,6 +523,35 @@ def _select_clusters_for_analysis(
             error="empty triage selection",
         )
     return _ClusterSelection(chosen, mode="llm_triage", candidate_count=len(candidate_clusters), reasons=reasons)
+
+
+def _select_with_optional_chokepoint_nodes(
+    triage_selector,
+    candidate_clusters,
+    top_k: int,
+    *,
+    total_clusters: int,
+    candidate_limit: int,
+):
+    kwargs = {"total_clusters": total_clusters, "candidate_limit": candidate_limit}
+    if _selector_accepts_chokepoint_nodes(triage_selector):
+        kwargs["chokepoint_nodes"] = _load_triage_chokepoint_nodes()
+    return triage_selector.select(candidate_clusters, top_k, **kwargs)
+
+
+def _selector_accepts_chokepoint_nodes(triage_selector) -> bool:
+    try:
+        parameters = inspect.signature(triage_selector.select).parameters
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return "chokepoint_nodes" in parameters
+
+
+def _load_triage_chokepoint_nodes() -> list[dict]:
+    try:
+        return curated_nodes()
+    except Exception:  # noqa: BLE001 - node context is a soft ranking hint, not a pipeline gate.
+        return []
 
 
 def _freshest_clusters(clusters, limit: int):
